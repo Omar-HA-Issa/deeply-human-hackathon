@@ -1,0 +1,9 @@
+{
+  "name": "worldquest-frontend",
+  "private": true,
+  "version": "0.0.1",
+  "description": "React Native Web frontend scaffold (placeholder).",
+  "scripts": {
+    "start": "echo \"Scaffold only. Initialize with Expo or RN Web.\""
+  }
+}
