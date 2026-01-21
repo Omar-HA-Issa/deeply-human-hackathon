@@ -111,6 +111,9 @@ class Question(TimeStampedModel):
 
     # Optional metadata
     explanation = models.TextField(blank=True)
+    did_you_know = models.TextField(blank=True)  # Hook fact before question
+    surprising_fact = models.TextField(blank=True)  # "Surprising, right? ..."
+    insight = models.TextField(blank=True)  # Takeaway lesson
     fact = models.ForeignKey(Fact, null=True, blank=True, on_delete=models.SET_NULL, related_name="questions")
 
     class Meta:

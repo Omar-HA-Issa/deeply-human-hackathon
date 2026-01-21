@@ -88,6 +88,9 @@ class QuestionGenerator:
             correct_index=ai_question["correct_index"],
             difficulty=ai_question.get("difficulty", 2),
             explanation=ai_question.get("explanation", ""),
+            did_you_know=ai_question.get("did_you_know", ""),
+            surprising_fact=ai_question.get("surprising_fact", ""),
+            insight=ai_question.get("insight", ""),
             source=Question.Source.AI,
         )
         return question
@@ -110,18 +113,17 @@ class QuestionGenerator:
         return fact.content if fact else None
 
     @transaction.atomic
-    def generate_for_country(self, country: Country) -> tuple[list[Question], Optional[str]]:
+    def generate_for_country(self, country: Country) -> list[Question]:
         """
         Generate questions for a country using AI.
-        Returns (questions, fun_fact).
+        Returns list of questions.
 
         ALL questions are AI-generated from the dataset.
         """
         # Check for cached questions
         cached = self._get_cached_questions(country)
         if len(cached) >= self.TOTAL_QUESTIONS:
-            fun_fact = self._get_cached_fun_fact(country)
-            return cached, fun_fact
+            return cached
 
         # Get country data from dataset
         country_data = self.template_generator.get_country_data(country.name)
@@ -134,14 +136,13 @@ class QuestionGenerator:
                     break
 
         if not country_data:
-            return [], None
+            return []
 
         questions = []
-        fun_fact = None
 
         # Generate ALL questions using AI
         try:
-            ai_questions, ai_fun_fact = self.ai_generator.generate_questions(
+            ai_questions = self.ai_generator.generate_questions(
                 country.name,
                 country_data,
                 count=self.TOTAL_QUESTIONS
@@ -154,37 +155,26 @@ class QuestionGenerator:
                 except Exception as e:
                     logger.error(f"Failed to save AI question: {e}")
 
-            if ai_fun_fact:
-                try:
-                    self._save_fun_fact(country, ai_fun_fact)
-                    fun_fact = ai_fun_fact
-                except Exception as e:
-                    logger.error(f"Failed to save fun fact: {e}")
-
         except Exception as e:
             logger.error(f"AI generation failed: {e}")
 
-        # If no fun fact from AI, try to get cached one
-        if not fun_fact:
-            fun_fact = self._get_cached_fun_fact(country)
+        return questions
 
-        return questions, fun_fact
-
-    def get_questions_for_country(self, country_code: str) -> tuple[list[Question], Optional[str], Optional[str]]:
+    def get_questions_for_country(self, country_code: str) -> tuple[list[Question], Optional[str]]:
         """
         Main entry point: Get or generate questions for a country by ISO2 code.
-        Returns (questions, fun_fact, error_message).
+        Returns (questions, error_message).
         """
         country = self.get_country_by_code(country_code)
         if not country:
-            return [], None, f"Country not found: {country_code}"
+            return [], f"Country not found: {country_code}"
 
         try:
-            questions, fun_fact = self.generate_for_country(country)
-            return questions, fun_fact, None
+            questions = self.generate_for_country(country)
+            return questions, None
         except Exception as e:
             logger.error(f"Failed to generate questions for {country_code}: {e}")
-            return [], None, str(e)
+            return [], str(e)
 
 
 # Singleton instance for convenience
