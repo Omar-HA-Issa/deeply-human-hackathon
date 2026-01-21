@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { AuthUser, logout, me } from "./api/auth";
 import { AuthScreen } from "./screens/AuthScreen";
 import { MapScreen } from "./screens/MapScreen";
+import { QuizScreen } from "./screens/QuizScreen";
 
 export function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [completedCodes, setCompletedCodes] = useState<string[]>(["ES"]);
 
   useEffect(() => {
     const handleHashChange = () => setHash(window.location.hash);
@@ -20,6 +22,16 @@ export function App() {
   }, []);
 
   const view = useMemo(() => hash.replace("#", ""), [hash]);
+  const quizParams = useMemo(() => {
+    if (!view.startsWith("quiz")) {
+      return null;
+    }
+    const queryString = view.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    const name = params.get("name") ?? "";
+    const code = params.get("code") ?? "";
+    return { name, code };
+  }, [view]);
 
   const handleLogout = async () => {
     await logout();
@@ -30,9 +42,29 @@ export function App() {
     return <AuthScreen onAuthSuccess={setUser} />;
   }
 
+  if (view.startsWith("quiz") && quizParams?.name) {
+    return (
+      <QuizScreen
+        countryName={quizParams.name}
+        onComplete={(passed) => {
+          if (passed) {
+            const normalizedCode = quizParams.code.toUpperCase();
+            if (normalizedCode) {
+              setCompletedCodes((prev) =>
+                prev.includes(normalizedCode) ? prev : [...prev, normalizedCode]
+              );
+            }
+          }
+          window.location.hash = "";
+        }}
+      />
+    );
+  }
+
   return (
     <MapScreen
       user={user}
+      completedCodes={completedCodes}
       onSignIn={() => {
         window.location.hash = "auth";
       }}

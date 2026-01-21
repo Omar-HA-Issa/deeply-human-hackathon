@@ -4,7 +4,6 @@ import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
 import "./MapScreen.css";
 
 const startCode = "ES";
-const completedCodes: string[] = ["ES"];
 
 const statusColor: Record<CountryStatus, string> = {
   locked: "rgba(148, 163, 184, 0.5)",
@@ -20,28 +19,27 @@ const statusAltitude: Record<CountryStatus, number> = {
 
 type MapScreenProps = {
   user: { username: string } | null;
+  completedCodes: string[];
   onSignIn: () => void;
   onSignOut: () => void;
 };
 
-export function MapScreen({ user, onSignIn, onSignOut }: MapScreenProps) {
+export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
   const countryPins = useMemo(
     () => buildRoadmapPins({ startCode, completedCodes, singleAvailable: true }),
-    []
+    [completedCodes]
   );
 
-  const handleStartQuiz = (countryName: string) => {
-    setSelectedCountry(countryName);
-    window.location.hash = `quiz?country=${encodeURIComponent(countryName)}`;
-  };
-
-  const handleRandomQuiz = () => {
-    const randomIndex = Math.floor(Math.random() * countryPins.length);
-    const randomCountry = countryPins[randomIndex];
-    handleStartQuiz(randomCountry.name);
+  const handleStartQuiz = (country: CountryPin) => {
+    setSelectedCountry(country.name);
+    const query = new URLSearchParams({
+      code: country.code,
+      name: country.name,
+    });
+    window.location.hash = `quiz?${query.toString()}`;
   };
 
   return (
@@ -115,7 +113,7 @@ export function MapScreen({ user, onSignIn, onSignOut }: MapScreenProps) {
               pointRadius={0.12}
               pointColor={(point) => statusColor[(point as CountryPin).status]}
               pointLabel={(point) => (point as CountryPin).name}
-              onPointClick={(point) => handleStartQuiz((point as CountryPin).name)}
+              onPointClick={(point) => handleStartQuiz(point as CountryPin)}
               onGlobeReady={() => {
                 const controls = globeRef.current?.controls();
                 if (controls) {
