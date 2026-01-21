@@ -10,27 +10,115 @@ export type CountryPin = {
   status: CountryStatus;
 };
 
-export function buildAllCountryPins(
-  statusByCode: Record<string, CountryStatus> = {}
-): CountryPin[] {
-  return (countries as Array<Record<string, unknown>>)
-    .map((country) => {
-      const latlng = country.latlng as number[] | undefined;
-      const code = country.cca2 as string | undefined;
-      const name = (country.name as { common?: string } | undefined)?.common;
+type CountryRecord = {
+  cca2?: string;
+  cca3?: string;
+  latlng?: number[];
+  name?: { common?: string };
+  borders?: string[];
+};
+
+type CountryData = {
+  code: string;
+  name: string;
+  lat: number;
+  lng: number;
+  borders: string[];
+};
+
+const countryData: CountryData[] = (() => {
+  const records = countries as CountryRecord[];
+  const cca3ToCca2: Record<string, string> = {};
+
+  records.forEach((record) => {
+    if (record.cca2 && record.cca3) {
+      cca3ToCca2[record.cca3.toUpperCase()] = record.cca2.toUpperCase();
+    }
+  });
+
+  return records
+    .map((record) => {
+      const latlng = record.latlng;
+      const code = record.cca2;
+      const name = record.name?.common;
 
       if (!latlng || latlng.length < 2 || !code || !name) {
         return null;
       }
 
-      const normalizedCode = code.toUpperCase();
+      const borders = (record.borders ?? [])
+        .map((border) => cca3ToCca2[border.toUpperCase()])
+        .filter(Boolean) as string[];
+
       return {
-        code: normalizedCode,
+        code: code.toUpperCase(),
         name,
         lat: latlng[0],
         lng: latlng[1],
-        status: statusByCode[normalizedCode] ?? "locked",
-      } satisfies CountryPin;
+        borders,
+      } satisfies CountryData;
     })
-    .filter(Boolean) as CountryPin[];
+    .filter(Boolean) as CountryData[];
+})();
+
+export function buildAllCountryPins(
+  statusByCode: Record<string, CountryStatus> = {}
+): CountryPin[] {
+  return countryData.map((country) => ({
+    code: country.code,
+    name: country.name,
+    lat: country.lat,
+    lng: country.lng,
+    status: statusByCode[country.code] ?? "locked",
+  }));
+}
+
+export function buildRoadmapPins(options: {
+  startCode: string;
+  completedCodes?: string[];
+  singleAvailable?: boolean;
+}): CountryPin[] {
+  const normalizedStart = options.startCode.toUpperCase();
+  const completedSet = new Set(
+    [normalizedStart, ...(options.completedCodes ?? [])].map((code) =>
+      code.toUpperCase()
+    )
+  );
+
+  const availableSet = new Set<string>();
+
+  countryData.forEach((country) => {
+    if (!completedSet.has(country.code)) {
+      return;
+    }
+
+    country.borders.forEach((neighbor) => {
+      if (!completedSet.has(neighbor)) {
+        availableSet.add(neighbor);
+      }
+    });
+  });
+
+  if (options.singleAvailable && availableSet.size > 1) {
+    const sorted = Array.from(availableSet).sort();
+    availableSet.clear();
+    availableSet.add(sorted[0]);
+  }
+
+  return countryData.map((country) => {
+    let status: CountryStatus = "locked";
+    if (completedSet.has(country.code)) {
+      status = "completed";
+    } else if (availableSet.has(country.code)) {
+      status = "available";
+    }
+
+    return {
+      code: country.code,
+      name: country.name,
+      lat: country.lat,
+      lng: country.lng,
+      status,
+    } satisfies CountryPin;
+  });
 }

@@ -1,15 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import Globe, { GlobeMethods } from "react-globe.gl";
-import { buildAllCountryPins, CountryPin, CountryStatus } from "../data/countries";
+import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
 import "./MapScreen.css";
 
-const statusByCode: Record<string, CountryStatus> = {
-  MX: "available",
-  US: "completed",
-  JP: "available",
-  BR: "locked",
-  CA: "completed",
-};
+const startCode = "ES";
+const completedCodes: string[] = ["ES"];
 
 const statusColor: Record<CountryStatus, string> = {
   locked: "rgba(148, 163, 184, 0.5)",
@@ -33,7 +28,10 @@ export function MapScreen({ user, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
-  const countryPins = useMemo(() => buildAllCountryPins(statusByCode), []);
+  const countryPins = useMemo(
+    () => buildRoadmapPins({ startCode, completedCodes, singleAvailable: true }),
+    []
+  );
 
   const handleStartQuiz = (countryName: string) => {
     setSelectedCountry(countryName);
@@ -66,8 +64,7 @@ export function MapScreen({ user, onSignIn, onSignOut }: MapScreenProps) {
       </header>
 
       <nav className="tabs">
-        <button className="tab active">Explore</button>
-        <button className="tab">Roadmap</button>
+        <button className="tab active">Roadmap</button>
         <button className="tab">Social</button>
       </nav>
 
@@ -94,16 +91,13 @@ export function MapScreen({ user, onSignIn, onSignOut }: MapScreenProps) {
             <strong>{selectedCountry ?? "Pick a pin"}</strong>
           </div>
 
-          <button className="button primary" onClick={handleRandomQuiz}>
-            Random Country Quiz
-          </button>
         </section>
 
         <section className="card globe-card">
           <div className="globe-header">
             <div>
-              <h2>Explore the globe</h2>
-              <p>Hover for country names. Click to start a quiz.</p>
+              <h2>Roadmap from Spain</h2>
+              <p>Connected countries unlock next steps.</p>
             </div>
             <div className="chip">Live pins</div>
           </div>
