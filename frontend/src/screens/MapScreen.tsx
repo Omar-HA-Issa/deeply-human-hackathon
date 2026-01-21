@@ -1,31 +1,33 @@
 import { useMemo, useRef, useState } from "react";
 import Globe, { GlobeMethods } from "react-globe.gl";
+import { buildAllCountryPins, CountryPin, CountryStatus } from "../data/countries";
 import "./MapScreen.css";
 
-type CountryPin = {
-  name: string;
-  lat: number;
-  lng: number;
-  size: number;
-  color: string;
+const statusByCode: Record<string, CountryStatus> = {
+  MX: "available",
+  US: "completed",
+  JP: "available",
+  BR: "locked",
+  CA: "completed",
+};
+
+const statusColor: Record<CountryStatus, string> = {
+  locked: "rgba(148, 163, 184, 0.5)",
+  available: "#93C5FD",
+  completed: "#6EE7B7",
+};
+
+const statusAltitude: Record<CountryStatus, number> = {
+  locked: 0.15,
+  available: 0.25,
+  completed: 0.3,
 };
 
 export function MapScreen() {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
-  const countryPins = useMemo<CountryPin[]>(
-    () => [
-      { name: "Mexico", lat: 23.6345, lng: -102.5528, size: 0.32, color: "#6EE7B7" },
-      { name: "Japan", lat: 36.2048, lng: 138.2529, size: 0.3, color: "#93C5FD" },
-      { name: "Kenya", lat: -0.0236, lng: 37.9062, size: 0.28, color: "#FCA5A5" },
-      { name: "Norway", lat: 60.472, lng: 8.4689, size: 0.28, color: "#FDE68A" },
-      { name: "Brazil", lat: -14.235, lng: -51.9253, size: 0.34, color: "#A7F3D0" },
-      { name: "India", lat: 20.5937, lng: 78.9629, size: 0.33, color: "#C4B5FD" },
-      { name: "Canada", lat: 56.1304, lng: -106.3468, size: 0.3, color: "#FDBA74" }
-    ],
-    []
-  );
+  const countryPins = useMemo(() => buildAllCountryPins(statusByCode), []);
 
   const handleStartQuiz = (countryName: string) => {
     setSelectedCountry(countryName);
@@ -98,9 +100,9 @@ export function MapScreen() {
               pointsData={countryPins}
               pointLat={(point) => (point as CountryPin).lat}
               pointLng={(point) => (point as CountryPin).lng}
-              pointAltitude={(point) => (point as CountryPin).size}
+              pointAltitude={(point) => statusAltitude[(point as CountryPin).status]}
               pointRadius={0.12}
-              pointColor={(point) => (point as CountryPin).color}
+              pointColor={(point) => statusColor[(point as CountryPin).status]}
               pointLabel={(point) => (point as CountryPin).name}
               onPointClick={(point) => handleStartQuiz((point as CountryPin).name)}
               onGlobeReady={() => {
