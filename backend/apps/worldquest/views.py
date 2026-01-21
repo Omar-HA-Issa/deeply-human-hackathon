@@ -135,7 +135,7 @@ def get_quiz(request, country_code):
 	"""
 	# Get or generate questions
 	generator = get_question_generator()
-	questions, fun_fact, error = generator.get_questions_for_country(country_code)
+	questions, error = generator.get_questions_for_country(country_code)
 
 	if error:
 		return _json_error(error, status=404)
@@ -159,6 +159,9 @@ def get_quiz(request, country_code):
 			"choices": q.choices,
 			"difficulty": q.difficulty,
 			"category": q.category.get_name_display() if q.category else "General",
+			"did_you_know": q.did_you_know,
+			"surprising_fact": q.surprising_fact,
+			"insight": q.insight,
 		})
 
 	return JsonResponse({
@@ -166,7 +169,6 @@ def get_quiz(request, country_code):
 		"country": country_name,
 		"country_code": country_code.upper(),
 		"questions": response_questions,
-		"fun_fact": fun_fact,
 	})
 
 
@@ -228,6 +230,8 @@ def submit_quiz(request, country_code):
 			"correct": is_correct,
 			"correct_index": question.correct_index,
 			"explanation": question.explanation,
+			"surprising_fact": question.surprising_fact,
+			"insight": question.insight,
 		})
 
 	total = len(results)
@@ -291,8 +295,16 @@ def list_countries(request):
 	"""
 	GET /api/countries/
 	List all countries available for quizzes.
+	Optional: ?search=japan to filter by name
 	"""
-	countries = Country.objects.all().order_by("order_index", "name")
+	countries = Country.objects.all()
+
+	# Optional search filter
+	search = request.GET.get("search", "").strip()
+	if search:
+		countries = countries.filter(name__icontains=search)
+
+	countries = countries.order_by("order_index", "name")
 
 	country_list = []
 	for c in countries:

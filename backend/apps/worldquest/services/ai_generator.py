@@ -97,40 +97,49 @@ INTERESTING_METRICS = [
     "contraceptive_use_percent_of_women_ages_15_49",
 ]
 
-AI_PROMPT_TEMPLATE = """You are a trivia question generator for a geography learning app called WorldQuest.
+AI_PROMPT_TEMPLATE = """You are a trivia question generator for WorldQuest, a geography learning app.
 
-Given this data about {country}:
+Country: {country}
+Data:
 {metrics_json}
 
-Generate exactly {num_questions} creative trivia questions and ONE fun fact.
+Generate {num_questions} trivia questions following this EXACT structure:
 
-QUESTION GUIDELINES:
-- Make questions engaging and educational - NOT just "What is X in {country}?"
-- Use comparisons, surprising facts, rankings, or contextual framing
-- Each question must have exactly 4 choices with ONE correct answer
-- Wrong choices should be plausible but clearly incorrect
-- Vary difficulty: include easy (1), medium (2), and hard (3) questions
-- Cover different topics from the data (health, economy, environment, etc.)
+1. "did_you_know" - A hook fact to introduce the question (1 sentence)
+2. "prompt" - Simple, direct question (NOT analytical like "What can be inferred...")
+3. "choices" - Exactly 4 options
+4. "correct_index" - Index of correct answer (0-3)
+5. "surprising_fact" - Starts with "Surprising, right?" - explains WHY the answer is interesting
+6. "insight" - A 5-8 word takeaway lesson
 
-Respond with ONLY valid JSON (no markdown):
+EXAMPLE:
 {{
   "questions": [
     {{
-      "prompt": "Creative question here?",
-      "choices": ["A", "B", "C", "D"],
-      "correct_index": 0,
-      "explanation": "Why this is correct",
+      "did_you_know": "Bhutan rejected GDP as a measure of progress.",
+      "prompt": "What does Bhutan measure instead of GDP?",
+      "choices": ["Military strength", "Gross National Happiness", "Population growth", "Land ownership"],
+      "correct_index": 1,
+      "surprising_fact": "Surprising, right? Since the 1970s, Bhutan has prioritized Gross National Happiness—measuring psychological wellbeing, health, education, and environmental sustainability over economic growth.",
+      "insight": "Countries can choose different definitions of success",
       "difficulty": 1
     }}
-  ],
-  "fun_fact": "Did you know that {country}..."
-}}"""
+  ]
+}}
+
+RULES:
+- Questions should be simple and direct
+- Use real data from the metrics provided
+- Cover different topics: health, economy, environment, population, etc.
+- Make surprising_fact genuinely interesting and educational
+
+Respond with ONLY valid JSON, no markdown."""
 
 
 class AIQuestionGenerator:
     """Generates creative questions and fun facts using Groq (free & fast!)."""
 
-    # Groq model - llama-3.3-70b is best quality, free tier
+    # Groq model - llama-3.3-70b
     MODEL = "llama-3.3-70b-versatile"
 
     def __init__(self):
@@ -186,20 +195,20 @@ class AIQuestionGenerator:
             return False
         return True
 
-    def generate_questions(self, country_name: str, country_data: dict, count: int = 5) -> tuple[list, Optional[str]]:
+    def generate_questions(self, country_name: str, country_data: dict, count: int = 5) -> list:
         """
         Generate ALL questions for a country in a single AI call.
-        Returns (list of question dicts, fun_fact string or None).
+        Returns list of question dicts.
         """
         if not self.client:
-            logger.error("OpenAI client not available")
-            return [], None
+            logger.error("Groq client not available")
+            return []
 
         # Extract relevant metrics
         metrics = self._extract_metrics(country_data)
         if not metrics:
             logger.error(f"No metrics available for {country_name}")
-            return [], None
+            return []
 
         # Build the prompt
         metrics_json = json.dumps(metrics, indent=2)
@@ -237,7 +246,6 @@ class AIQuestionGenerator:
 
             # Extract questions array
             questions_data = data.get("questions", [])
-            fun_fact = data.get("fun_fact")
 
             # Validate each question
             valid_questions = []
@@ -248,11 +256,11 @@ class AIQuestionGenerator:
                     logger.warning(f"Invalid question skipped: {q}")
 
             logger.info(f"Generated {len(valid_questions)} questions for {country_name}")
-            return valid_questions, fun_fact
+            return valid_questions
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse AI response as JSON: {e}")
-            return [], None
+            return []
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            return [], None
+            logger.error(f"Groq API error: {e}")
+            return []
