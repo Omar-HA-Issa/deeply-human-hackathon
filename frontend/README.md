@@ -1,7 +1,19 @@
-# Frontend (React Native Web)
+# Frontend (React + Vite)
 
-Scaffold-only structure so you can drop in Expo or React Native Web later.
+This folder now contains a minimal React web app with an interactive globe
+using `react-globe.gl`.
 
-Suggested init options:
-- Expo: create app here, keep `src/` folder.
-- RN Web: Vite + React + react-native-web.
+## Quick start
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+npm run preview
+```
