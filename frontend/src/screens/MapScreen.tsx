@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import Globe from "react-globe.gl";
+import Globe, { GlobeMethods } from "react-globe.gl";
 import "./MapScreen.css";
 
 type CountryPin = {
@@ -11,7 +11,7 @@ type CountryPin = {
 };
 
 export function MapScreen() {
-  const globeRef = useRef<Globe | null>(null);
+  const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
   const countryPins = useMemo<CountryPin[]>(
