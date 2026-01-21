@@ -6,7 +6,16 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import Country, Question, QuizAttempt, AttemptAnswer, UserStats, Progress
+from .models import (
+	Country,
+	Question,
+	QuizAttempt,
+	AttemptAnswer,
+	UserStats,
+	Progress,
+	FriendRequest,
+	Friendship,
+)
 from .services import get_question_generator
 
 
@@ -24,6 +33,12 @@ def _parse_json(request):
 		return json.loads(request.body.decode("utf-8"))
 	except (json.JSONDecodeError, UnicodeDecodeError):
 		return None
+
+
+def _require_authenticated(request):
+	if not request.user.is_authenticated:
+		return _json_error("Not authenticated.", status=401)
+	return None
 
 
 @csrf_exempt
@@ -294,3 +309,342 @@ def list_countries(request):
 		"countries": country_list,
 		"count": len(country_list),
 	})
+
+
+# ─────────────────────────────────────────────────────────────
+# Stats + Leaderboard Endpoints
+# ─────────────────────────────────────────────────────────────
+
+@require_GET
+def user_stats(request):
+	"""
+	GET /api/stats/
+	Return stats for the authenticated user.
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	stats, _ = UserStats.objects.get_or_create(user=request.user)
+	total_answered = stats.total_answered
+	accuracy = (stats.total_correct / total_answered) if total_answered else 0
+	completed_count = Progress.objects.filter(
+		user=request.user,
+		status=Progress.Status.COMPLETED,
+	).count()
+	attempts_count = QuizAttempt.objects.filter(user=request.user).count()
+
+	return JsonResponse({
+		"ok": True,
+		"stats": {
+			"xp": stats.xp,
+			"total_correct": stats.total_correct,
+			"total_answered": total_answered,
+			"accuracy": accuracy,
+			"streak_days": stats.streak_days,
+			"countries_completed": completed_count,
+			"total_attempts": attempts_count,
+		},
+	})
+
+
+@require_GET
+def leaderboard(request):
+	"""
+	GET /api/leaderboard/?limit=20
+	Return top users by XP.
+	"""
+	limit_raw = request.GET.get("limit", "20")
+	try:
+		limit = int(limit_raw)
+	except (TypeError, ValueError):
+		limit = 20
+	limit = max(1, min(limit, 100))
+
+	stats_qs = UserStats.objects.select_related("user").order_by(
+		"-xp",
+		"-total_correct",
+		"-total_answered",
+		"user__username",
+	)[:limit]
+
+	entries = []
+	for index, stats in enumerate(stats_qs, start=1):
+		total_answered = stats.total_answered
+		accuracy = (stats.total_correct / total_answered) if total_answered else 0
+		entries.append({
+			"rank": index,
+			"user": {
+				"id": stats.user_id,
+				"username": stats.user.username,
+			},
+			"xp": stats.xp,
+			"total_correct": stats.total_correct,
+			"total_answered": total_answered,
+			"accuracy": accuracy,
+			"streak_days": stats.streak_days,
+			"is_me": request.user.is_authenticated and stats.user_id == request.user.id,
+		})
+
+	return JsonResponse({
+		"ok": True,
+		"leaderboard": entries,
+		"count": len(entries),
+	})
+
+
+# ─────────────────────────────────────────────────────────────
+# Social Endpoints
+# ─────────────────────────────────────────────────────────────
+
+@require_GET
+def list_friends(request):
+	"""
+	GET /api/friends/
+	List all friends for the authenticated user.
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	friendships = Friendship.objects.filter(user=request.user).select_related(
+		"friend",
+		"friend__stats",
+	).order_by("friend__username")
+
+	friends = []
+	for relation in friendships:
+		friend = relation.friend
+		stats = getattr(friend, "stats", None)
+		total_answered = stats.total_answered if stats else 0
+		accuracy = (stats.total_correct / total_answered) if stats and total_answered else 0
+		friends.append({
+			"id": friend.id,
+			"username": friend.username,
+			"xp": stats.xp if stats else 0,
+			"accuracy": accuracy,
+			"streak_days": stats.streak_days if stats else 0,
+		})
+
+	return JsonResponse({
+		"ok": True,
+		"friends": friends,
+		"count": len(friends),
+	})
+
+
+@require_GET
+def list_friend_requests(request):
+	"""
+	GET /api/friends/requests/
+	List pending friend requests (incoming/outgoing).
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	incoming_qs = FriendRequest.objects.filter(
+		to_user=request.user,
+		status=FriendRequest.Status.PENDING,
+	).select_related("from_user").order_by("-created_at")
+
+	outgoing_qs = FriendRequest.objects.filter(
+		from_user=request.user,
+		status=FriendRequest.Status.PENDING,
+	).select_related("to_user").order_by("-created_at")
+
+	incoming = [{
+		"id": fr.id,
+		"from_user": {
+			"id": fr.from_user_id,
+			"username": fr.from_user.username,
+		},
+		"created_at": fr.created_at.isoformat(),
+	} for fr in incoming_qs]
+
+	outgoing = [{
+		"id": fr.id,
+		"to_user": {
+			"id": fr.to_user_id,
+			"username": fr.to_user.username,
+		},
+		"created_at": fr.created_at.isoformat(),
+	} for fr in outgoing_qs]
+
+	return JsonResponse({
+		"ok": True,
+		"incoming": incoming,
+		"outgoing": outgoing,
+	})
+
+
+@csrf_exempt
+@require_POST
+def send_friend_request(request):
+	"""
+	POST /api/friends/requests/
+	Body: { "username": "alice" } or { "user_id": 123 }
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	payload = _parse_json(request)
+	if payload is None:
+		return _json_error("Invalid JSON payload.")
+
+	username = (payload.get("username") or "").strip()
+	user_id = payload.get("user_id")
+
+	target = None
+	if user_id is not None:
+		target = User.objects.filter(id=user_id).first()
+	elif username:
+		target = User.objects.filter(username__iexact=username).first()
+
+	if not target:
+		return _json_error("User not found.", status=404)
+
+	if target.id == request.user.id:
+		return _json_error("You cannot add yourself.")
+
+	if Friendship.objects.filter(user=request.user, friend=target).exists():
+		return _json_error("You are already friends.")
+
+	existing = FriendRequest.objects.filter(
+		from_user=request.user,
+		to_user=target,
+	).first()
+	if existing:
+		if existing.status == FriendRequest.Status.PENDING:
+			return _json_error("Friend request already sent.")
+		existing.status = FriendRequest.Status.PENDING
+		existing.responded_at = None
+		existing.save(update_fields=["status", "responded_at"])
+		return JsonResponse({"ok": True, "request_id": existing.id})
+
+	reverse_request = FriendRequest.objects.filter(
+		from_user=target,
+		to_user=request.user,
+		status=FriendRequest.Status.PENDING,
+	).first()
+	if reverse_request:
+		reverse_request.status = FriendRequest.Status.ACCEPTED
+		reverse_request.responded_at = timezone.now()
+		reverse_request.save(update_fields=["status", "responded_at"])
+		Friendship.objects.get_or_create(user=request.user, friend=target)
+		Friendship.objects.get_or_create(user=target, friend=request.user)
+		return JsonResponse({
+			"ok": True,
+			"friends": True,
+			"request_id": reverse_request.id,
+		})
+
+	friend_request = FriendRequest.objects.create(
+		from_user=request.user,
+		to_user=target,
+		status=FriendRequest.Status.PENDING,
+	)
+	return JsonResponse({"ok": True, "request_id": friend_request.id})
+
+
+@csrf_exempt
+@require_POST
+def accept_friend_request(request, request_id):
+	"""
+	POST /api/friends/requests/<id>/accept/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	friend_request = FriendRequest.objects.filter(
+		id=request_id,
+		to_user=request.user,
+		status=FriendRequest.Status.PENDING,
+	).select_related("from_user").first()
+	if not friend_request:
+		return _json_error("Friend request not found.", status=404)
+
+	friend_request.status = FriendRequest.Status.ACCEPTED
+	friend_request.responded_at = timezone.now()
+	friend_request.save(update_fields=["status", "responded_at"])
+
+	Friendship.objects.get_or_create(user=request.user, friend=friend_request.from_user)
+	Friendship.objects.get_or_create(user=friend_request.from_user, friend=request.user)
+
+	return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def decline_friend_request(request, request_id):
+	"""
+	POST /api/friends/requests/<id>/decline/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	friend_request = FriendRequest.objects.filter(
+		id=request_id,
+		to_user=request.user,
+		status=FriendRequest.Status.PENDING,
+	).first()
+	if not friend_request:
+		return _json_error("Friend request not found.", status=404)
+
+	friend_request.status = FriendRequest.Status.DECLINED
+	friend_request.responded_at = timezone.now()
+	friend_request.save(update_fields=["status", "responded_at"])
+	return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def cancel_friend_request(request, request_id):
+	"""
+	POST /api/friends/requests/<id>/cancel/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	friend_request = FriendRequest.objects.filter(
+		id=request_id,
+		from_user=request.user,
+		status=FriendRequest.Status.PENDING,
+	).first()
+	if not friend_request:
+		return _json_error("Friend request not found.", status=404)
+
+	friend_request.delete()
+	return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def remove_friend(request, user_id):
+	"""
+	POST /api/friends/<user_id>/remove/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	if user_id == request.user.id:
+		return _json_error("You cannot remove yourself.")
+
+	deleted_count, _ = Friendship.objects.filter(
+		user=request.user,
+		friend_id=user_id,
+	).delete()
+	deleted_count += Friendship.objects.filter(
+		user_id=user_id,
+		friend=request.user,
+	).delete()[0]
+
+	if deleted_count == 0:
+		return _json_error("Friend not found.", status=404)
+
+	return JsonResponse({"ok": True})
