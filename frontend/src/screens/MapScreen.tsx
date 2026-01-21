@@ -117,8 +117,7 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
               onGlobeReady={() => {
                 const controls = globeRef.current?.controls();
                 if (controls) {
-                  controls.autoRotate = true;
-                  controls.autoRotateSpeed = 0.4;
+                  controls.autoRotate = false;
                 }
               }}
             />
