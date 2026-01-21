@@ -139,7 +139,7 @@ Respond with ONLY valid JSON, no markdown."""
 class AIQuestionGenerator:
     """Generates creative questions and fun facts using Groq (free & fast!)."""
 
-    # Groq model - llama-3.3-70b is best quality, free tier
+    # Groq model - llama-3.3-70b
     MODEL = "llama-3.3-70b-versatile"
 
     def __init__(self):
