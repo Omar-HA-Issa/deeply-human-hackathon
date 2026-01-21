@@ -42,10 +42,11 @@ export function App() {
     return <AuthScreen onAuthSuccess={setUser} />;
   }
 
-  if (view.startsWith("quiz") && quizParams?.name) {
+  if (view.startsWith("quiz") && quizParams?.name && quizParams?.code) {
     return (
       <QuizScreen
         countryName={quizParams.name}
+        countryCode={quizParams.code}
         onComplete={(passed) => {
           if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();

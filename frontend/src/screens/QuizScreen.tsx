@@ -1,84 +1,155 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchQuiz, QuizApiQuestion, QuizSubmitResponse, submitQuiz } from "../api/quiz";
 import "./QuizScreen.css";
-
-export type QuizQuestion = {
-  id: string;
-  prompt: string;
-  options: string[];
-  correctIndex: number;
-};
 
 type QuizScreenProps = {
   countryName: string;
+  countryCode: string;
   onComplete: (passed: boolean) => void;
 };
-
-const mockQuestions: QuizQuestion[] = [
-  {
-    id: "q1",
-    prompt: "What is the capital city?",
-    options: ["Madrid", "Lisbon", "Rome", "Athens"],
-    correctIndex: 0,
-  },
-  {
-    id: "q2",
-    prompt: "Which continent is this country in?",
-    options: ["Europe", "Asia", "South America", "Africa"],
-    correctIndex: 0,
-  },
-  {
-    id: "q3",
-    prompt: "Which language is widely spoken here?",
-    options: ["Spanish", "Arabic", "German", "Japanese"],
-    correctIndex: 0,
-  },
-  {
-    id: "q4",
-    prompt: "Which flag colors are correct?",
-    options: ["Red & Yellow", "Green & White", "Blue & Black", "Orange & Purple"],
-    correctIndex: 0,
-  },
-  {
-    id: "q5",
-    prompt: "Pick the correct currency.",
-    options: ["Euro", "Peso", "Yen", "Dinar"],
-    correctIndex: 0,
-  },
-];
-
-export function QuizScreen({ countryName, onComplete }: QuizScreenProps) {
+export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [questions, setQuestions] = useState<QuizApiQuestion[]>([]);
+  const [funFact, setFunFact] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<QuizSubmitResponse["results"]>([]);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  const questions = useMemo(() => mockQuestions, []);
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setQuestions([]);
+    setFunFact(null);
+    setAnswers({});
+    setCurrentIndex(0);
+    setSelectedIndex(null);
+    setCorrectCount(0);
+    setShowResult(false);
+    setResults([]);
+    setSubmitted(false);
+    setSubmitError(null);
+
+    fetchQuiz(countryCode)
+      .then((response) => {
+        setQuestions(response.questions ?? []);
+        setFunFact(response.fun_fact ?? null);
+        setTotalQuestions(response.questions?.length ?? 0);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load quiz");
+      })
+      .finally(() => setLoading(false));
+  }, [countryCode]);
+
   const currentQuestion = questions[currentIndex];
 
   const handleSubmit = () => {
-    if (selectedIndex === null) {
+    if (selectedIndex === null || !currentQuestion) {
       return;
     }
 
-    const isCorrect = selectedIndex === currentQuestion.correctIndex;
-    const nextCorrectCount = isCorrect ? correctCount + 1 : correctCount;
-    const isLast = currentIndex === questions.length - 1;
+    setAnswers((prev) => ({
+      ...prev,
+      [currentQuestion.id]: selectedIndex,
+    }));
 
+    const isLast = currentIndex === questions.length - 1;
     if (isLast) {
-      setCorrectCount(nextCorrectCount);
       setShowResult(true);
       return;
     }
 
-    setCorrectCount(nextCorrectCount);
     setSelectedIndex(null);
     setCurrentIndex((prev) => prev + 1);
   };
 
+  useEffect(() => {
+    if (!showResult || submitLoading || submitted || submitError) {
+      return;
+    }
+
+    const payload = Object.entries(answers).map(([id, answerIndex]) => ({
+      question_id: Number(id),
+      selected_index: answerIndex,
+    }));
+
+    setSubmitLoading(true);
+    setSubmitError(null);
+
+    submitQuiz(countryCode, payload)
+      .then((result) => {
+        setCorrectCount(result.correct_count);
+        setTotalQuestions(result.total);
+        setResults(result.results ?? []);
+        setSubmitted(true);
+      })
+      .catch((err) => {
+        setSubmitError(err instanceof Error ? err.message : "Failed to submit quiz");
+      })
+      .finally(() => setSubmitLoading(false));
+  }, [answers, countryCode, showResult, submitError, submitLoading, submitted]);
+
   const handleFinish = () => {
-    const passed = correctCount >= 3;
-    onComplete(passed);
+    onComplete(correctCount >= 3);
   };
+
+  const scoreSummary = useMemo(() => {
+    if (!showResult) {
+      return null;
+    }
+    return results
+      .filter((item) => item.explanation)
+      .map((item) => ({
+        id: String(item.question_id),
+        explanation: item.explanation as string,
+        correct: item.correct,
+      }));
+  }, [results, showResult]);
+
+  if (loading) {
+    return (
+      <div className="quiz-screen">
+        <div className="quiz-card">
+          <h2>Loading quiz...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="quiz-screen">
+        <div className="quiz-card">
+          <h2>Quiz unavailable</h2>
+          <p>{error}</p>
+          <button className="quiz-primary" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <div className="quiz-screen">
+        <div className="quiz-card">
+          <h2>No questions found</h2>
+          <button className="quiz-primary" onClick={() => onComplete(false)}>
+            Back to roadmap
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (showResult) {
     const passed = correctCount >= 3;
@@ -87,9 +158,39 @@ export function QuizScreen({ countryName, onComplete }: QuizScreenProps) {
         <div className="quiz-card">
           <h2>{passed ? "Great job!" : "Almost there"}</h2>
           <p>
-            You scored {correctCount} out of {questions.length}.
+            {submitted
+              ? `You scored ${correctCount} out of ${totalQuestions}.`
+              : "Calculating your score..."}
           </p>
-          <button className="quiz-primary" onClick={handleFinish}>
+          {funFact && <p className="quiz-fun-fact">Fun fact: {funFact}</p>}
+          {submitLoading && <p className="quiz-muted">Submitting your answers...</p>}
+          {submitError && <p className="quiz-error">{submitError}</p>}
+          {submitError && (
+            <button
+              className="quiz-secondary"
+              onClick={() => setSubmitError(null)}
+            >
+              Retry submission
+            </button>
+          )}
+          {scoreSummary && scoreSummary.length > 0 && (
+            <div className="quiz-explanations">
+              <h4>Explanations</h4>
+              <ul>
+                {scoreSummary.map((item) => (
+                  <li key={item.id}>
+                    {item.explanation}
+                    {!item.correct && " (Incorrect)"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <button
+            className="quiz-primary"
+            onClick={handleFinish}
+            disabled={submitLoading || !submitted}
+          >
             {passed ? "Unlock next country" : "Try again"}
           </button>
         </div>
@@ -111,7 +212,7 @@ export function QuizScreen({ countryName, onComplete }: QuizScreenProps) {
         <div className="quiz-question">
           <h3>{currentQuestion.prompt}</h3>
           <div className="quiz-options">
-            {currentQuestion.options.map((option, index) => (
+            {currentQuestion.choices.map((option, index) => (
               <button
                 key={option}
                 className={
