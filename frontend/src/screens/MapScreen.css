@@ -24,6 +24,17 @@
   color: #b3c0e8;
 }
 
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-user {
+  font-size: 13px;
+  color: #b5c2ec;
+}
+
 .tabs {
   display: flex;
   gap: 10px;
