@@ -2,8 +2,22 @@
   "name": "worldquest-frontend",
   "private": true,
   "version": "0.0.1",
-  "description": "React Native Web frontend scaffold (placeholder).",
+  "description": "React web UI for WorldQuest.",
   "scripts": {
-    "start": "echo \"Scaffold only. Initialize with Expo or RN Web.\""
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-globe.gl": "^2.33.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2"
   }
 }
