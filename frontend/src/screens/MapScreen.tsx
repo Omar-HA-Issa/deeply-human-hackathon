@@ -23,7 +23,13 @@ const statusAltitude: Record<CountryStatus, number> = {
   completed: 0.3,
 };
 
-export function MapScreen() {
+type MapScreenProps = {
+  user: { username: string } | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
+};
+
+export function MapScreen({ user, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -45,7 +51,18 @@ export function MapScreen() {
       <header className="top-header">
         <div className="logo">WorldQuest</div>
         <div className="tagline">Explore the world. Learn fast.</div>
-        <button className="button ghost">Sign in</button>
+        {user ? (
+          <div className="auth-actions">
+            <span className="auth-user">Hi, {user.username}</span>
+            <button className="button ghost" onClick={onSignOut}>
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <button className="button ghost" onClick={onSignIn}>
+            Sign in
+          </button>
+        )}
       </header>
 
       <nav className="tabs">
