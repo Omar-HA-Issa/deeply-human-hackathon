@@ -15,4 +15,17 @@ urlpatterns = [
 
     # Country listing
     path("countries/", views.list_countries, name="countries-list"),
+
+    # Stats + leaderboard
+    path("stats/", views.user_stats, name="user-stats"),
+    path("leaderboard/", views.leaderboard, name="leaderboard"),
+
+    # Social
+    path("friends/", views.list_friends, name="friends-list"),
+    path("friends/requests/", views.list_friend_requests, name="friend-requests-list"),
+    path("friends/requests/send/", views.send_friend_request, name="friend-request-send"),
+    path("friends/requests/<int:request_id>/accept/", views.accept_friend_request, name="friend-request-accept"),
+    path("friends/requests/<int:request_id>/decline/", views.decline_friend_request, name="friend-request-decline"),
+    path("friends/requests/<int:request_id>/cancel/", views.cancel_friend_request, name="friend-request-cancel"),
+    path("friends/<int:user_id>/remove/", views.remove_friend, name="friend-remove"),
 ]
