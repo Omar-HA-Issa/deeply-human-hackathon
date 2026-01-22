@@ -1,24 +1,28 @@
+import { getJson, postJson } from "./client";
+
 export type Friend = {
-  id: string;
-  name: string;
-  home: string;
-  countries: number;
-  streak: number;
-  lastQuiz: string;
-  isOnline: boolean;
+  id: number;
+  username: string;
+  xp: number;
+  accuracy: number;
+  streakDays: number;
 };
 
 export type FriendRequest = {
-  id: string;
-  name: string;
-  mutuals: number;
-  favorite: string;
+  id: number;
+  username: string;
+  direction: "incoming" | "outgoing";
+  createdAt: string;
 };
 
 export type LeaderboardEntry = {
-  id: string;
-  name: string;
-  countries: number;
+  rank: number;
+  userId: number;
+  username: string;
+  xp: number;
+  accuracy: number;
+  streakDays: number;
+  isMe: boolean;
 };
 
 export type SocialSnapshot = {
@@ -27,57 +31,91 @@ export type SocialSnapshot = {
   leaderboard: LeaderboardEntry[];
 };
 
-const demoSnapshot: SocialSnapshot = {
-  friends: [
-    {
-      id: "friend-1",
-      name: "Lina Park",
-      home: "Seoul",
-      countries: 14,
-      streak: 6,
-      lastQuiz: "Italy",
-      isOnline: true,
-    },
-    {
-      id: "friend-2",
-      name: "Noah Klein",
-      home: "Berlin",
-      countries: 21,
-      streak: 3,
-      lastQuiz: "France",
-      isOnline: true,
-    },
-    {
-      id: "friend-3",
-      name: "Amina Hassan",
-      home: "Cairo",
-      countries: 17,
-      streak: 9,
-      lastQuiz: "Greece",
-      isOnline: false,
-    },
-  ],
-  requests: [
-    {
-      id: "request-1",
-      name: "Miguel Santos",
-      mutuals: 3,
-      favorite: "Portugal",
-    },
-    {
-      id: "request-2",
-      name: "Sofia Costa",
-      mutuals: 1,
-      favorite: "Morocco",
-    },
-  ],
-  leaderboard: [
-    { id: "rank-1", name: "Yuki Tan", countries: 38 },
-    { id: "rank-2", name: "Oliver Smith", countries: 35 },
-    { id: "rank-3", name: "Priya Singh", countries: 32 },
-  ],
+type FriendsResponse = {
+  friends: Array<{
+    id: number;
+    username: string;
+    xp: number;
+    accuracy: number;
+    streak_days: number;
+  }>;
+};
+
+type FriendRequestsResponse = {
+  incoming: Array<{
+    id: number;
+    from_user: { id: number; username: string };
+    created_at: string;
+  }>;
+  outgoing: Array<{
+    id: number;
+    to_user: { id: number; username: string };
+    created_at: string;
+  }>;
+};
+
+type LeaderboardResponse = {
+  leaderboard: Array<{
+    rank: number;
+    user: { id: number; username: string };
+    xp: number;
+    accuracy: number;
+    streak_days: number;
+    is_me: boolean;
+  }>;
 };
 
 export async function fetchSocialSnapshot(): Promise<SocialSnapshot> {
-  return Promise.resolve(demoSnapshot);
+  const [friendsResponse, requestsResponse, leaderboardResponse] = await Promise.all([
+    getJson<FriendsResponse>("/api/friends/"),
+    getJson<FriendRequestsResponse>("/api/friends/requests/"),
+    getJson<LeaderboardResponse>("/api/leaderboard/"),
+  ]);
+
+  const friends = friendsResponse.friends.map((friend) => ({
+    id: friend.id,
+    username: friend.username,
+    xp: friend.xp,
+    accuracy: friend.accuracy,
+    streakDays: friend.streak_days,
+  }));
+
+  const requests: FriendRequest[] = [
+    ...requestsResponse.incoming.map((request) => ({
+      id: request.id,
+      username: request.from_user.username,
+      direction: "incoming" as const,
+      createdAt: request.created_at,
+    })),
+    ...requestsResponse.outgoing.map((request) => ({
+      id: request.id,
+      username: request.to_user.username,
+      direction: "outgoing" as const,
+      createdAt: request.created_at,
+    })),
+  ];
+
+  const leaderboard = leaderboardResponse.leaderboard.map((entry) => ({
+    rank: entry.rank,
+    userId: entry.user.id,
+    username: entry.user.username,
+    xp: entry.xp,
+    accuracy: entry.accuracy,
+    streakDays: entry.streak_days,
+    isMe: entry.is_me,
+  }));
+
+  return { friends, requests, leaderboard };
+}
+
+export async function acceptFriendRequest(requestId: number) {
+  return postJson<Record<string, never>>(
+    `/api/friends/requests/${requestId}/accept/`
+  );
+}
+
+export async function declineFriendRequest(requestId: number) {
+  return postJson<Record<string, never>>(
+    `/api/friends/requests/${requestId}/decline/`
+  );
 }
