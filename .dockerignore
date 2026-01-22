@@ -1,0 +1,25 @@
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[codz]
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+.env
+.venv
+venv/
+ENV/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
