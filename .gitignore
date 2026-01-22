@@ -137,6 +137,7 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+.env.*
 .venv
 env/
 venv/
@@ -211,3 +212,14 @@ __marimo__/
 nul
 .claude/
 settings.local.json
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env.local
+frontend/.env.*
+
+# OS
+.DS_Store
