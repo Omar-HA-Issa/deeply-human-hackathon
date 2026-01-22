@@ -61,6 +61,7 @@ const countryData: CountryData[] = (() => {
     .filter(Boolean) as CountryData[];
 })();
 
+
 export function buildAllCountryPins(
   statusByCode: Record<string, CountryStatus> = {}
 ): CountryPin[] {
@@ -77,7 +78,14 @@ export function buildRoadmapPins(options: {
   startCode: string;
   completedCodes?: string[];
   singleAvailable?: boolean;
+  allowedCodes?: string[];
 }): CountryPin[] {
+  const allowedSet = options.allowedCodes
+    ? new Set(options.allowedCodes.map((code) => code.toUpperCase()))
+    : null;
+  const filteredCountries = allowedSet
+    ? countryData.filter((country) => allowedSet.has(country.code))
+    : countryData;
   const normalizedStart = options.startCode.toUpperCase();
   const completedSet = new Set(
     [normalizedStart, ...(options.completedCodes ?? [])].map((code) =>
@@ -87,16 +95,17 @@ export function buildRoadmapPins(options: {
 
   const availableSet = new Set<string>();
 
-  countryData.forEach((country) => {
+  filteredCountries.forEach((country) => {
     if (!completedSet.has(country.code)) {
       return;
     }
 
     country.borders.forEach((neighbor) => {
-      if (!completedSet.has(neighbor)) {
+      if (!completedSet.has(neighbor) && (!allowedSet || allowedSet.has(neighbor))) {
         availableSet.add(neighbor);
       }
     });
+
   });
 
   if (options.singleAvailable && availableSet.size > 1) {
@@ -105,7 +114,7 @@ export function buildRoadmapPins(options: {
     availableSet.add(sorted[0]);
   }
 
-  return countryData.map((country) => {
+  return filteredCountries.map((country) => {
     let status: CountryStatus = "locked";
     if (completedSet.has(country.code)) {
       status = "completed";
