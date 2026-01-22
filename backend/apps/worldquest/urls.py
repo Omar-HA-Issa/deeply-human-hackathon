@@ -15,6 +15,7 @@ urlpatterns = [
 
     # Country listing
     path("countries/", views.list_countries, name="countries-list"),
+    path("countries/available/", views.list_available_countries, name="countries-available"),
 
     # Stats + leaderboard
     path("stats/", views.user_stats, name="user-stats"),

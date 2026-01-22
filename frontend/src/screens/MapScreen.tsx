@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
+import { fetchAvailableCountryCodes } from "../api/countries";
 import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
@@ -31,11 +32,35 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
+  const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
 
   const countryPins = useMemo(
-    () => buildRoadmapPins({ startCode, completedCodes, singleAvailable: true }),
-    [completedCodes]
+    () =>
+      buildRoadmapPins({
+        startCode,
+        completedCodes,
+        allowedCodes: availableCodes ?? undefined,
+      }),
+    [completedCodes, availableCodes]
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchAvailableCountryCodes()
+      .then((codes) => {
+        if (isMounted) {
+          setAvailableCodes(codes);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAvailableCodes(null);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

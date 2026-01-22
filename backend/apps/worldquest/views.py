@@ -1,5 +1,7 @@
 import json
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.http import JsonResponse
 from django.utils import timezone
@@ -21,6 +23,8 @@ from .services import get_question_generator
 
 User = get_user_model()
 
+_dataset_country_names: set[str] | None = None
+
 
 def _json_error(message: str, status: int = 400):
 	return JsonResponse({"ok": False, "error": message}, status=status)
@@ -39,6 +43,20 @@ def _require_authenticated(request):
 	if not request.user.is_authenticated:
 		return _json_error("Not authenticated.", status=401)
 	return None
+
+
+def _get_dataset_country_names() -> set[str]:
+	global _dataset_country_names
+	if _dataset_country_names is not None:
+		return _dataset_country_names
+	try:
+		dataset_path = Path(settings.DATASET_PATH)
+		with dataset_path.open("r", encoding="utf-8") as file:
+			data = json.load(file)
+		_dataset_country_names = set(data.keys())
+	except Exception:
+		_dataset_country_names = set()
+	return _dataset_country_names
 
 
 @csrf_exempt
@@ -322,6 +340,24 @@ def list_countries(request):
 		"ok": True,
 		"countries": country_list,
 		"count": len(country_list),
+	})
+
+
+@require_GET
+def list_available_countries(request):
+	"""
+	GET /api/countries/available/
+	List countries that have dataset-backed quiz data.
+	"""
+	available_names = _get_dataset_country_names()
+	if not available_names:
+		return JsonResponse({"ok": True, "countries": [], "count": 0})
+
+	qs = Country.objects.filter(name__in=available_names).order_by("name")
+	return JsonResponse({
+		"ok": True,
+		"countries": [country.iso2 for country in qs],
+		"count": qs.count(),
 	})
 
 
