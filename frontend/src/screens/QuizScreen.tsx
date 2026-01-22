@@ -22,6 +22,12 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [answerStates, setAnswerStates] = useState<
+    Record<number, { selectedIndex: number; isCorrect: boolean }>
+  >({});
+  const [revealedQuestions, setRevealedQuestions] = useState<Set<number>>(
+    () => new Set()
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -36,6 +42,8 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     setResults([]);
     setSubmitted(false);
     setSubmitError(null);
+    setAnswerStates({});
+    setRevealedQuestions(new Set());
 
     fetchQuiz(countryCode)
       .then((response) => {
@@ -52,14 +60,24 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
   const currentQuestion = questions[currentIndex];
 
   const handleSubmit = () => {
-    if (selectedIndex === null || !currentQuestion) {
+    if (!currentQuestion || selectedIndex === null) {
       return;
     }
 
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: selectedIndex,
-    }));
+    const isAlreadyRevealed = revealedQuestions.has(currentQuestion.id);
+    if (!isAlreadyRevealed) {
+      const isCorrect = selectedIndex === currentQuestion.correct_index;
+      setAnswerStates((prev) => ({
+        ...prev,
+        [currentQuestion.id]: { selectedIndex, isCorrect },
+      }));
+      setAnswers((prev) => ({
+        ...prev,
+        [currentQuestion.id]: selectedIndex,
+      }));
+      setRevealedQuestions((prev) => new Set(prev).add(currentQuestion.id));
+      return;
+    }
 
     const isLast = currentIndex === questions.length - 1;
     if (isLast) {
@@ -99,6 +117,27 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
 
   const handleFinish = () => {
     onComplete(correctCount >= 3);
+  };
+
+  const optionVariants = useMemo(
+    () => ["blue", "yellow", "mint", "lavender"],
+    []
+  );
+
+  const displayScore = useMemo(() => {
+    return Object.values(answerStates).filter((item) => item.isCorrect).length;
+  }, [answerStates]);
+
+  const handleOptionSelect = (index: number) => {
+    if (!currentQuestion) {
+      return;
+    }
+
+    if (revealedQuestions.has(currentQuestion.id)) {
+      return;
+    }
+
+    setSelectedIndex(index);
   };
 
   const scoreSummary = useMemo(() => {
@@ -156,13 +195,28 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     return (
       <div className="quiz-screen">
         <div className="quiz-card">
+          <div className="quiz-meta">
+            <div className="quiz-country">
+              <span className="quiz-code">{countryCode}</span>
+              <div>
+                <h1>{countryName}</h1>
+                <p>Quiz complete</p>
+              </div>
+            </div>
+          </div>
+
           <h2>{passed ? "Great job!" : "Almost there"}</h2>
           <p>
             {submitted
               ? `You scored ${correctCount} out of ${totalQuestions}.`
               : "Calculating your score..."}
           </p>
-          {funFact && <p className="quiz-fun-fact">Fun fact: {funFact}</p>}
+          {funFact && (
+            <div className="quiz-fun-card">
+              <div className="quiz-fun-title">Did you know?</div>
+              <p>{funFact}</p>
+            </div>
+          )}
           {submitLoading && <p className="quiz-muted">Submitting your answers...</p>}
           {submitError && <p className="quiz-error">{submitError}</p>}
           {submitError && (
@@ -172,19 +226,6 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
             >
               Retry submission
             </button>
-          )}
-          {scoreSummary && scoreSummary.length > 0 && (
-            <div className="quiz-explanations">
-              <h4>Explanations</h4>
-              <ul>
-                {scoreSummary.map((item) => (
-                  <li key={item.id}>
-                    {item.explanation}
-                    {!item.correct && " (Incorrect)"}
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
           <button
             className="quiz-primary"
@@ -201,39 +242,74 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
   return (
     <div className="quiz-screen">
       <div className="quiz-card">
-        <div className="quiz-header">
-          <div>
-            <h1>{countryName} Quiz</h1>
-            <p>Question {currentIndex + 1} of {questions.length}</p>
+        <div className="quiz-meta">
+          <div className="quiz-country">
+            <span className="quiz-code">{countryCode}</span>
+            <div>
+              <h1>{countryName}</h1>
+              <p>Question {currentIndex + 1} of {questions.length}</p>
+            </div>
           </div>
-          <div className="quiz-score">Score: {correctCount}</div>
+          <div className="quiz-score">Score: {displayScore}</div>
         </div>
 
         <div className="quiz-question">
           <h3>{currentQuestion.prompt}</h3>
           <div className="quiz-options">
-            {currentQuestion.choices.map((option, index) => (
-              <button
-                key={option}
-                className={
-                  selectedIndex === index
-                    ? "quiz-option selected"
-                    : "quiz-option"
-                }
-                onClick={() => setSelectedIndex(index)}
-              >
-                {option}
-              </button>
-            ))}
+            {currentQuestion.choices.map((option, index) => {
+              const answerState = answerStates[currentQuestion.id];
+              const isAnswered = Boolean(answerState);
+              const isSelected = answerState?.selectedIndex === index;
+              const isCorrect = currentQuestion.correct_index === index;
+              const isWrong = isSelected && !answerState?.isCorrect;
+              const isRevealed = revealedQuestions.has(currentQuestion.id);
+
+              let stateClass = "";
+              if (isAnswered && isCorrect) {
+                stateClass = "correct";
+              } else if (isAnswered && isWrong) {
+                stateClass = "wrong";
+              }
+
+              return (
+                <button
+                  key={option}
+                  data-variant={optionVariants[index % optionVariants.length]}
+                  className={`quiz-option ${selectedIndex === index ? "selected" : ""} ${stateClass}`}
+                  onClick={() => handleOptionSelect(index)}
+                  disabled={isRevealed}
+                >
+                  <span className="quiz-option-letter">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <span className="quiz-option-text">{option}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {revealedQuestions.has(currentQuestion.id) && (
+          <div className="quiz-fun-card">
+            <div className="quiz-fun-title">Did you know?</div>
+            <p>
+              {currentQuestion.did_you_know ||
+                currentQuestion.surprising_fact ||
+                funFact}
+            </p>
+          </div>
+        )}
 
         <button
           className="quiz-primary"
           onClick={handleSubmit}
           disabled={selectedIndex === null}
         >
-          {currentIndex === questions.length - 1 ? "Finish" : "Next"}
+          {revealedQuestions.has(currentQuestion.id)
+            ? currentIndex === questions.length - 1
+              ? "Finish"
+              : "Continue"
+            : "Check answer"}
         </button>
       </div>
     </div>

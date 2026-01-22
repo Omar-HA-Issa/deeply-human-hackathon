@@ -87,9 +87,17 @@ class QuestionGenerator:
             choices=ai_question["choices"],
             correct_index=ai_question["correct_index"],
             difficulty=ai_question.get("difficulty", 2),
-            explanation=ai_question.get("explanation", ""),
-            did_you_know=ai_question.get("did_you_know", ""),
-            surprising_fact=ai_question.get("surprising_fact", ""),
+            explanation=ai_question.get("explanation") or ai_question.get("surprising_fact", ""),
+            did_you_know=(
+                ai_question.get("did_you_know")
+                or ai_question.get("surprising_fact")
+                or ai_question.get("explanation", "")
+            ),
+            surprising_fact=(
+                ai_question.get("surprising_fact")
+                or ai_question.get("did_you_know")
+                or ai_question.get("explanation", "")
+            ),
             insight=ai_question.get("insight", ""),
             source=Question.Source.AI,
         )

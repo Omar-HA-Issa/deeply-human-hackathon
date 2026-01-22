@@ -4,6 +4,10 @@ export type QuizApiQuestion = {
   id: number;
   prompt: string;
   choices: string[];
+  correct_index: number;
+  did_you_know?: string;
+  surprising_fact?: string;
+  insight?: string;
 };
 
 export type QuizApiResponse = {
