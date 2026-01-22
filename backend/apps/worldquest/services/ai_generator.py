@@ -111,6 +111,7 @@ Generate {num_questions} trivia questions following this EXACT structure:
 4. "correct_index" - Index of correct answer (0-3)
 5. "surprising_fact" - Starts with "Surprising, right?" - explains WHY the answer is interesting
 6. "insight" - A 5-8 word takeaway lesson
+7. "explanation" - 1-2 sentence explanation (can match surprising_fact)
 
 EXAMPLE:
 {{
@@ -122,6 +123,7 @@ EXAMPLE:
       "correct_index": 1,
       "surprising_fact": "Surprising, right? Since the 1970s, Bhutan has prioritized Gross National Happiness—measuring psychological wellbeing, health, education, and environmental sustainability over economic growth.",
       "insight": "Countries can choose different definitions of success",
+            "explanation": "Bhutan is known for prioritizing Gross National Happiness over GDP.",
       "difficulty": 1
     }}
   ]
@@ -184,7 +186,7 @@ class AIQuestionGenerator:
 
     def _validate_question(self, question: dict) -> bool:
         """Validate that a question has all required fields and valid values."""
-        required_fields = ["prompt", "choices", "correct_index", "explanation"]
+        required_fields = ["prompt", "choices", "correct_index"]
         if not all(field in question for field in required_fields):
             return False
         if len(question.get("choices", [])) != 4:

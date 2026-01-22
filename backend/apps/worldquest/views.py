@@ -153,14 +153,16 @@ def get_quiz(request, country_code):
 	# Format response
 	response_questions = []
 	for q in questions:
+		fallback_fact = q.surprising_fact or q.did_you_know or q.explanation
 		response_questions.append({
 			"id": q.id,
 			"prompt": q.prompt,
 			"choices": q.choices,
+			"correct_index": q.correct_index,
 			"difficulty": q.difficulty,
 			"category": q.category.get_name_display() if q.category else "General",
-			"did_you_know": q.did_you_know,
-			"surprising_fact": q.surprising_fact,
+			"did_you_know": q.did_you_know or fallback_fact,
+			"surprising_fact": q.surprising_fact or fallback_fact,
 			"insight": q.insight,
 		})
 
