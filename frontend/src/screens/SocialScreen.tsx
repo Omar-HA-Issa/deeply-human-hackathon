@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  acceptFriendRequest,
+  declineFriendRequest,
   fetchSocialSnapshot,
   Friend,
   FriendRequest,
@@ -20,23 +22,45 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [cheeredIds, setCheeredIds] = useState<Set<string>>(new Set());
+  const [cheeredIds, setCheeredIds] = useState<Set<number>>(new Set());
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSocialSnapshot().then((snapshot) => {
+  const loadSnapshot = async () => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+      const snapshot = await fetchSocialSnapshot();
       setFriends(snapshot.friends);
       setRequests(snapshot.requests);
       setLeaderboard(snapshot.leaderboard);
-    });
-  }, []);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to load");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const onlineCount = useMemo(
-    () => friends.filter((friend) => friend.isOnline).length,
-    [friends]
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    loadSnapshot();
+  }, [user]);
+
+  const incomingRequests = useMemo(
+    () => requests.filter((request) => request.direction === "incoming"),
+    [requests]
   );
 
-  const handleCheer = (friendId: string) => {
+  const outgoingRequests = useMemo(
+    () => requests.filter((request) => request.direction === "outgoing"),
+    [requests]
+  );
+
+  const handleCheer = (friendId: number) => {
     setCheeredIds((prev) => {
       const next = new Set(prev);
       if (next.has(friendId)) {
@@ -48,28 +72,14 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
     });
   };
 
-  const handleAccept = (requestId: string) => {
-    const request = requests.find((item) => item.id === requestId);
-    if (!request) {
-      return;
-    }
-    setRequests((prev) => prev.filter((item) => item.id !== requestId));
-    setFriends((prev) => [
-      {
-        id: request.id,
-        name: request.name,
-        home: "New explorer",
-        countries: 1,
-        streak: 1,
-        lastQuiz: request.favorite,
-        isOnline: true,
-      },
-      ...prev,
-    ]);
+  const handleAccept = async (requestId: number) => {
+    await acceptFriendRequest(requestId);
+    await loadSnapshot();
   };
 
-  const handleIgnore = (requestId: string) => {
-    setRequests((prev) => prev.filter((item) => item.id !== requestId));
+  const handleIgnore = async (requestId: number) => {
+    await declineFriendRequest(requestId);
+    await loadSnapshot();
   };
 
   const handleInvite = async () => {
@@ -141,31 +151,32 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
         <section className="card social-panel">
           <header className="panel-header">
             <h3>Friends</h3>
-            <span className="pill">{onlineCount} online</span>
+            <span className="pill">{friends.length} total</span>
           </header>
-          <div className="friend-list">
-            {friends.map((friend) => (
-              <div className="friend-row" key={friend.id}>
+          {isLoading ? (
+            <div className="empty-state">Loading friends…</div>
+          ) : loadError ? (
+            <div className="empty-state">{loadError}</div>
+          ) : (
+            <div className="friend-list">
+              {friends.map((friend) => (
+                <div className="friend-row" key={friend.id}>
                 <div className="friend-main">
-                  <div className="avatar">{friend.name[0]}</div>
+                  <div className="avatar">{friend.username[0]}</div>
                   <div>
-                    <div className="friend-name">{friend.name}</div>
+                    <div className="friend-name">{friend.username}</div>
                     <div className="friend-meta">
-                      {friend.home} · {friend.lastQuiz}
+                      {Math.round(friend.accuracy * 100)}% accuracy
                     </div>
                     <div className="friend-status">
-                      <span
-                        className={
-                          friend.isOnline ? "status-dot online" : "status-dot"
-                        }
-                      />
-                      {friend.isOnline ? "Exploring now" : "Away"}
+                      <span className="status-dot online" />
+                      {friend.xp} XP
                     </div>
                   </div>
                 </div>
                 <div className="friend-details">
-                  <span>{friend.countries} countries</span>
-                  <span>{friend.streak} day streak</span>
+                  <span>{friend.streakDays} day streak</span>
+                  <span>{Math.round(friend.accuracy * 100)}% accuracy</span>
                 </div>
                 <div className="friend-action">
                   <button
@@ -177,24 +188,29 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                     {cheeredIds.has(friend.id) ? "Cheered" : "Cheer"}
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="card social-panel">
           <header className="panel-header">
             <h3>Friend requests</h3>
-            <span className="pill muted">{requests.length} new</span>
+            <span className="pill muted">{incomingRequests.length} new</span>
           </header>
-          {requests.length ? (
+          {isLoading ? (
+            <div className="empty-state">Loading requests…</div>
+          ) : loadError ? (
+            <div className="empty-state">{loadError}</div>
+          ) : incomingRequests.length ? (
             <div className="request-list">
-              {requests.map((request) => (
+              {incomingRequests.map((request) => (
                 <div className="request-row" key={request.id}>
                   <div>
-                    <div className="friend-name">{request.name}</div>
+                    <div className="friend-name">{request.username}</div>
                     <div className="friend-meta">
-                      {request.mutuals} mutuals · Loves {request.favorite}
+                      Incoming request
                     </div>
                   </div>
                   <div className="request-actions">
@@ -215,7 +231,11 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
               ))}
             </div>
           ) : (
-            <div className="empty-state">No new requests right now.</div>
+            <div className="empty-state">
+              {outgoingRequests.length
+                ? `No incoming requests. ${outgoingRequests.length} outgoing pending.`
+                : "No requests right now."}
+            </div>
           )}
         </section>
 
@@ -244,15 +264,24 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             <h3>Top explorers</h3>
             <span className="pill muted">This week</span>
           </header>
-          <div className="leaderboard-list">
-            {leaderboard.map((entry, index) => (
-              <div className="leaderboard-row" key={entry.id}>
-                <span className="rank">#{index + 1}</span>
-                <span className="leader-name">{entry.name}</span>
-                <span className="leader-score">{entry.countries} countries</span>
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="empty-state">Loading leaderboard…</div>
+          ) : loadError ? (
+            <div className="empty-state">{loadError}</div>
+          ) : (
+            <div className="leaderboard-list">
+              {leaderboard.map((entry, index) => (
+                <div className="leaderboard-row" key={entry.userId}>
+                  <span className="rank">#{index + 1}</span>
+                  <span className="leader-name">
+                    {entry.username}
+                    {entry.isMe ? " (you)" : ""}
+                  </span>
+                  <span className="leader-score">{entry.xp} XP</span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

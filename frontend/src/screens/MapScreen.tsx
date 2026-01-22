@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { GlobeMethods } from "react-globe.gl";
+import { feature } from "topojson-client";
 import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
@@ -7,9 +8,9 @@ import "./MapScreen.css";
 const startCode = "ES";
 
 const statusColor: Record<CountryStatus, string> = {
-  locked: "rgba(148, 163, 184, 0.5)",
-  available: "#93C5FD",
-  completed: "#6EE7B7",
+  locked: "#F87171",
+  available: "#60A5FA",
+  completed: "#34D399",
 };
 
 const statusAltitude: Record<CountryStatus, number> = {
@@ -29,13 +30,40 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
+  const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
 
   const countryPins = useMemo(
     () => buildRoadmapPins({ startCode, completedCodes, singleAvailable: true }),
     [completedCodes]
   );
 
+  useEffect(() => {
+    let isMounted = true;
+    fetch("https://unpkg.com/world-atlas@2/countries-110m.json")
+      .then((response) => response.json())
+      .then((worldData) => {
+        const collection = feature(
+          worldData,
+          worldData.objects.countries
+        ) as { features: Array<unknown> };
+        if (isMounted) {
+          setCountryBorders(collection.features);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setCountryBorders([]);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleStartQuiz = (country: CountryPin) => {
+    if (country.status === "locked") {
+      return;
+    }
     setSelectedCountry(country.name);
     const query = new URLSearchParams({
       code: country.code,
@@ -118,6 +146,11 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
                 globeImageUrl="https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
                 bumpImageUrl="https://unpkg.com/three-globe/example/img/earth-topology.png"
                 backgroundColor="rgba(0,0,0,0)"
+                polygonsData={countryBorders}
+                polygonAltitude={0.01}
+                polygonCapColor={() => "rgba(12, 18, 38, 0.35)"}
+                polygonSideColor={() => "rgba(12, 18, 38, 0.15)"}
+                polygonStrokeColor={() => "rgba(148, 163, 184, 0.5)"}
                 pointsData={countryPins}
                 pointLat={(point) => (point as CountryPin).lat}
                 pointLng={(point) => (point as CountryPin).lng}
