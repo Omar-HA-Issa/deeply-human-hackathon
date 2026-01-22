@@ -156,15 +156,41 @@ class QuestionGenerator:
                 count=self.TOTAL_QUESTIONS
             )
 
-            for ai_q in ai_questions:
-                try:
-                    q = self._save_ai_question(country, ai_q)
-                    questions.append(q)
-                except Exception as e:
-                    logger.error(f"Failed to save AI question: {e}")
+            if ai_questions:
+                for ai_q in ai_questions:
+                    try:
+                        q = self._save_ai_question(country, ai_q)
+                        questions.append(q)
+                    except Exception as e:
+                        logger.error(f"Failed to save AI question: {e}")
+            else:
+                logger.warning(
+                    "AI generation returned no questions; falling back to template questions."
+                )
+                template_questions = self.template_generator.generate_questions(
+                    country.name,
+                    count=self.TOTAL_QUESTIONS,
+                )
+                for tmpl_q in template_questions:
+                    try:
+                        q = self._save_template_question(country, tmpl_q)
+                        questions.append(q)
+                    except Exception as e:
+                        logger.error(f"Failed to save template question: {e}")
 
         except Exception as e:
             logger.error(f"AI generation failed: {e}")
+
+            template_questions = self.template_generator.generate_questions(
+                country.name,
+                count=self.TOTAL_QUESTIONS,
+            )
+            for tmpl_q in template_questions:
+                try:
+                    q = self._save_template_question(country, tmpl_q)
+                    questions.append(q)
+                except Exception as save_error:
+                    logger.error(f"Failed to save template question: {save_error}")
 
         return questions
 
