@@ -1,30 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthUser, logout, me } from "./api/auth";
-import { fetchProgressSnapshot } from "./api/progress";
+import { fetchProgress } from "./api/progress";
+import { fetchUserStats, UserStats } from "./api/stats";
 import { AuthScreen } from "./screens/AuthScreen";
+import { LandingScreen } from "./screens/LandingScreen";
 import { MapScreen } from "./screens/MapScreen";
 import { QuizScreen } from "./screens/QuizScreen";
 
 export function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [completedCodes, setCompletedCodes] = useState<string[]>(["ES"]);
-  const [unlockedCodes, setUnlockedCodes] = useState<string[] | null>(null);
-
-  const loadProgress = async () => {
-    if (!user) {
-      return;
-    }
-    try {
-      const snapshot = await fetchProgressSnapshot();
-      const normalized = snapshot.completedCountries.map((code) => code.toUpperCase());
-      setCompletedCodes(normalized.length ? normalized : ["ES"]);
-      setUnlockedCodes(snapshot.unlockedCountries.map((code) => code.toUpperCase()));
-    } catch {
-      setCompletedCodes(["ES"]);
-      setUnlockedCodes(null);
-    }
-  };
+  const [completedCodes, setCompletedCodes] = useState<string[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
 
   useEffect(() => {
     const handleHashChange = () => setHash(window.location.hash);
@@ -38,16 +25,45 @@ export function App() {
       .catch(() => setUser(null));
   }, []);
 
-  useEffect(() => {
-    if (!user) {
-      setCompletedCodes(["ES"]);
-      setUnlockedCodes(null);
+  const normalizeCompleted = (codes: string[]) => {
+    const normalized = codes.map((code) => code.toUpperCase());
+    return Array.from(new Set(normalized));
+  };
+
+  const refreshProgress = async (currentUser: AuthUser | null) => {
+    if (!currentUser) {
+      setCompletedCodes([]);
+      setStats(null);
       return;
     }
-    loadProgress();
+
+    try {
+      const [progressResponse, statsResponse] = await Promise.all([
+        fetchProgress(),
+        fetchUserStats(),
+      ]);
+      setCompletedCodes(normalizeCompleted(progressResponse.completed_codes ?? []));
+      setStats(statsResponse.stats);
+    } catch {
+      setCompletedCodes([]);
+      setStats(null);
+    }
+  };
+
+  useEffect(() => {
+    refreshProgress(user);
   }, [user]);
 
   const view = useMemo(() => hash.replace("#", ""), [hash]);
+  const authMode = useMemo(() => {
+    if (!view.startsWith("auth")) {
+      return "login" as const;
+    }
+    const queryString = view.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    const mode = params.get("mode");
+    return mode === "register" ? "register" : "login";
+  }, [view]);
   const quizParams = useMemo(() => {
     if (!view.startsWith("quiz")) {
       return null;
@@ -65,7 +81,7 @@ export function App() {
   };
 
   if (view.startsWith("auth")) {
-    return <AuthScreen onAuthSuccess={setUser} />;
+    return <AuthScreen onAuthSuccess={setUser} initialMode={authMode} />;
   }
 
   if (view.startsWith("quiz") && quizParams?.name && quizParams?.code) {
@@ -75,7 +91,7 @@ export function App() {
         countryCode={quizParams.code}
         onComplete={(passed) => {
           if (user) {
-            loadProgress();
+            refreshProgress(user);
           } else if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();
             if (normalizedCode) {
@@ -90,13 +106,26 @@ export function App() {
     );
   }
 
+  if (!user && !view) {
+    return (
+      <LandingScreen
+        onSignIn={() => {
+          window.location.hash = "auth?mode=login";
+        }}
+        onSignUp={() => {
+          window.location.hash = "auth?mode=register";
+        }}
+      />
+    );
+  }
+
   return (
     <MapScreen
       user={user}
       completedCodes={completedCodes}
-      unlockedCodes={unlockedCodes ?? undefined}
+      stats={stats}
       onSignIn={() => {
-        window.location.hash = "auth";
+        window.location.hash = "auth?mode=login";
       }}
       onSignOut={handleLogout}
     />

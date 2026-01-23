@@ -421,34 +421,37 @@ def list_available_countries(request):
 
 
 @require_GET
-def progress_snapshot(request):
+def list_progress(request):
 	"""
 	GET /api/progress/
-	Return XP, points, and unlocked/completed countries for the authenticated user.
+	Return progress entries for the authenticated user.
 	"""
 	auth_error = _require_authenticated(request)
 	if auth_error:
 		return auth_error
 
 	stats, _ = UserStats.objects.get_or_create(user=request.user)
-	completed_codes = list(
-		Progress.objects.filter(
-			user=request.user,
-			status=Progress.Status.COMPLETED,
-		).values_list("country__iso2", flat=True)
-	)
-	unlocked_codes = _sync_progress_unlocks(request.user, stats.xp)
-	next_unlock_xp = (stats.xp // XP_PER_UNLOCK + 1) * XP_PER_UNLOCK
+	_sync_progress_unlocks(request.user, stats.xp)
+
+	progress_qs = Progress.objects.filter(user=request.user).select_related("country")
+	progress_entries = []
+	completed_codes = []
+	for entry in progress_qs:
+		code = entry.country.iso2
+		progress_entries.append({
+			"code": code,
+			"status": entry.status,
+			"unlocked_at": entry.unlocked_at.isoformat() if entry.unlocked_at else None,
+			"completed_at": entry.completed_at.isoformat() if entry.completed_at else None,
+		})
+		if entry.status == Progress.Status.COMPLETED:
+			completed_codes.append(code)
 
 	return JsonResponse({
 		"ok": True,
-		"xp": stats.xp,
-		"quiz_points": stats.quiz_points,
-		"match_points": stats.match_points,
-		"xp_per_unlock": XP_PER_UNLOCK,
-		"next_unlock_xp": next_unlock_xp,
-		"unlocked_countries": unlocked_codes,
-		"completed_countries": completed_codes,
+		"progress": progress_entries,
+		"completed_codes": completed_codes,
+		"count": len(progress_entries),
 	})
 
 

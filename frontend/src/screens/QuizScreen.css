@@ -74,6 +74,16 @@
   font-size: 12px;
 }
 
+.quiz-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quiz-back {
+  white-space: nowrap;
+}
+
 .quiz-question h3 {
   margin: 0 0 14px;
   color: #22314f;

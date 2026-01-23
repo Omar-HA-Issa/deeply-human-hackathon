@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import { fetchAvailableCountryCodes } from "../api/countries";
-import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
+import { UserStats } from "../api/stats";
+import {
+  buildRoadmapPins,
+  CountryPin,
+  CountryStatus,
+  getCountryByNumericCode,
+} from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
 
@@ -23,17 +29,21 @@ const statusAltitude: Record<CountryStatus, number> = {
 type MapScreenProps = {
   user: { username: string } | null;
   completedCodes: string[];
-  unlockedCodes?: string[];
+  stats: UserStats | null;
   onSignIn: () => void;
   onSignOut: () => void;
 };
 
-export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSignOut }: MapScreenProps) {
+export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
   const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
+
+  const countriesExplored = stats?.countries_completed ?? completedCodes.length;
+  const accuracyPercent = stats ? Math.round((stats.accuracy || 0) * 100) : 0;
+  const streakDays = stats?.streak_days ?? 0;
 
   const countryPins = useMemo(
     () =>
@@ -41,9 +51,11 @@ export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSig
         startCode,
         completedCodes,
         allowedCodes: user ? undefined : (availableCodes ?? undefined),
-        unlockedCodes,
+        includeSeaNeighbors: true,
+        seaNeighborKm: 600,
+        maxSeaNeighbors: 3,
       }),
-    [completedCodes, availableCodes, unlockedCodes, user]
+    [completedCodes, availableCodes, user]
   );
 
   useEffect(() => {
@@ -73,8 +85,24 @@ export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSig
           worldData,
           worldData.objects.countries
         ) as { features: Array<unknown> };
+        const mapped = collection.features.map((polygon) => {
+          const polygonData = polygon as {
+            id?: number | string;
+            properties?: Record<string, unknown>;
+          };
+          const numericId = polygonData.id ?? "";
+          const country = getCountryByNumericCode(numericId);
+          return {
+            ...polygonData,
+            properties: {
+              ...polygonData.properties,
+              code: country?.code,
+              name: country?.name,
+            },
+          };
+        });
         if (isMounted) {
-          setCountryBorders(collection.features);
+          setCountryBorders(mapped);
         }
       })
       .catch(() => {
@@ -97,6 +125,20 @@ export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSig
       name: country.name,
     });
     window.location.hash = `quiz?${query.toString()}`;
+  };
+
+  const handleCountryClick = (polygon: unknown) => {
+    const props = (polygon as { properties?: { code?: string; name?: string } })
+      .properties;
+    const code = props?.code;
+    if (!code) {
+      return;
+    }
+    const pin = countryPins.find((item) => item.code === code);
+    if (!pin) {
+      return;
+    }
+    handleStartQuiz(pin);
   };
 
   return (
@@ -140,15 +182,15 @@ export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSig
             <div className="stats-grid">
               <div className="stat">
                 <span className="stat-label">Countries explored</span>
-                <span className="stat-value">12</span>
+                <span className="stat-value">{countriesExplored}</span>
               </div>
               <div className="stat">
                 <span className="stat-label">Accuracy</span>
-                <span className="stat-value">78%</span>
+                <span className="stat-value">{accuracyPercent}%</span>
               </div>
               <div className="stat">
                 <span className="stat-label">Streak</span>
-                <span className="stat-value">5 days</span>
+                <span className="stat-value">{streakDays} days</span>
               </div>
             </div>
 
@@ -184,10 +226,11 @@ export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSig
                 pointAltitude={(point) =>
                   statusAltitude[(point as CountryPin).status]
                 }
-                pointRadius={0.12}
+                pointRadius={0.24}
                 pointColor={(point) => statusColor[(point as CountryPin).status]}
                 pointLabel={(point) => (point as CountryPin).name}
                 onPointClick={(point) => handleStartQuiz(point as CountryPin)}
+                onPolygonClick={(polygon) => handleCountryClick(polygon)}
                 onGlobeReady={() => {
                   const controls = globeRef.current?.controls();
                   if (controls) {
