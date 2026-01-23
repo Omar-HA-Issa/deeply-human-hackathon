@@ -40,22 +40,33 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
   const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
+  const [showStats, setShowStats] = useState(false);
 
   const countriesExplored = stats?.countries_completed ?? completedCodes.length;
   const accuracyPercent = stats ? Math.round((stats.accuracy || 0) * 100) : 0;
   const streakDays = stats?.streak_days ?? 0;
+
+  const allowedCodes = useMemo(() => {
+    if (user) {
+      return undefined;
+    }
+    if (!availableCodes || availableCodes.length === 0) {
+      return undefined;
+    }
+    return availableCodes;
+  }, [availableCodes, user]);
 
   const countryPins = useMemo(
     () =>
       buildRoadmapPins({
         startCode,
         completedCodes,
-        allowedCodes: user ? undefined : (availableCodes ?? undefined),
+        allowedCodes,
         includeSeaNeighbors: true,
         seaNeighborKm: 600,
         maxSeaNeighbors: 3,
       }),
-    [completedCodes, availableCodes, user]
+    [completedCodes, allowedCodes]
   );
 
   useEffect(() => {
@@ -176,34 +187,11 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
       </nav>
 
       {activeTab === "roadmap" ? (
-        <main className="main-grid">
-          <section className="card stats-card">
-            <h3>Your stats</h3>
-            <div className="stats-grid">
-              <div className="stat">
-                <span className="stat-label">Countries explored</span>
-                <span className="stat-value">{countriesExplored}</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">Accuracy</span>
-                <span className="stat-value">{accuracyPercent}%</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">Streak</span>
-                <span className="stat-value">{streakDays} days</span>
-              </div>
-            </div>
-
-            <div className="selected-country">
-              <span>Selected</span>
-              <strong>{selectedCountry ?? "Pick a pin"}</strong>
-            </div>
-          </section>
-
+        <main className="roadmap-layout">
           <section className="card globe-card">
             <div className="globe-header">
               <div>
-                <h2>Roadmap from Spain</h2>
+                <h2>Roadmap</h2>
                 <p>Connected countries unlock next steps.</p>
               </div>
               <div className="chip">Live pins</div>
@@ -239,6 +227,59 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
                 }}
               />
             </div>
+
+            <button
+              className="stats-toggle"
+              type="button"
+              onClick={() => setShowStats((prev) => !prev)}
+              aria-label="Toggle stats"
+            >
+              📊
+            </button>
+            {showStats && (
+              <div className="stats-panel">
+                <div className="stats-panel-header">
+                  <h3>Your stats</h3>
+                  <button
+                    className="stats-close"
+                    type="button"
+                    onClick={() => setShowStats(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="stats-grid">
+                  <div className="stat">
+                    <span className="stat-label">Countries explored</span>
+                    <span className="stat-value">{countriesExplored}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Accuracy</span>
+                    <span className="stat-value">{accuracyPercent}%</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Streak</span>
+                    <span className="stat-value">{streakDays} days</span>
+                  </div>
+                </div>
+                <div className="stats-divider" />
+                <div className="stats-subtitle">Scoring</div>
+                <div className="stats-grid">
+                  <div className="stat">
+                    <span className="stat-label">XP per correct</span>
+                    <span className="stat-value">10</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Streak bonus</span>
+                    <span className="stat-value">+20% each streak</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Quiz points</span>
+                    <span className="stat-value">0–100 by accuracy</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         </main>
       ) : (
