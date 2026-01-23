@@ -361,6 +361,38 @@ def list_available_countries(request):
 	})
 
 
+@require_GET
+def list_progress(request):
+	"""
+	GET /api/progress/
+	Return progress entries for the authenticated user.
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	progress_qs = Progress.objects.filter(user=request.user).select_related("country")
+	progress_entries = []
+	completed_codes = []
+	for entry in progress_qs:
+		code = entry.country.iso2
+		progress_entries.append({
+			"code": code,
+			"status": entry.status,
+			"unlocked_at": entry.unlocked_at.isoformat() if entry.unlocked_at else None,
+			"completed_at": entry.completed_at.isoformat() if entry.completed_at else None,
+		})
+		if entry.status == Progress.Status.COMPLETED:
+			completed_codes.append(code)
+
+	return JsonResponse({
+		"ok": True,
+		"progress": progress_entries,
+		"completed_codes": completed_codes,
+		"count": len(progress_entries),
+	})
+
+
 # ─────────────────────────────────────────────────────────────
 # Stats + Leaderboard Endpoints
 # ─────────────────────────────────────────────────────────────

@@ -119,6 +119,10 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     onComplete(correctCount >= 3);
   };
 
+  const handleBack = () => {
+    onComplete(false);
+  };
+
   const optionVariants = useMemo(
     () => ["blue", "yellow", "mint", "lavender"],
     []
@@ -203,6 +207,11 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
                 <p>Quiz complete</p>
               </div>
             </div>
+            <div className="quiz-meta-actions">
+              <button className="quiz-secondary quiz-back" onClick={handleBack}>
+                Back
+              </button>
+            </div>
           </div>
 
           <h2>{passed ? "Great job!" : "Almost there"}</h2>
@@ -250,7 +259,12 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
               <p>Question {currentIndex + 1} of {questions.length}</p>
             </div>
           </div>
-          <div className="quiz-score">Score: {displayScore}</div>
+          <div className="quiz-meta-actions">
+            <div className="quiz-score">Score: {displayScore}</div>
+            <button className="quiz-secondary quiz-back" onClick={handleBack}>
+              Back
+            </button>
+          </div>
         </div>
 
         <div className="quiz-question">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import { fetchAvailableCountryCodes } from "../api/countries";
+import { UserStats } from "../api/stats";
 import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
@@ -23,16 +24,21 @@ const statusAltitude: Record<CountryStatus, number> = {
 type MapScreenProps = {
   user: { username: string } | null;
   completedCodes: string[];
+  stats: UserStats | null;
   onSignIn: () => void;
   onSignOut: () => void;
 };
 
-export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScreenProps) {
+export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
   const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
+
+  const countriesExplored = stats?.countries_completed ?? Math.max(0, completedCodes.length - 1);
+  const accuracyPercent = stats ? Math.round((stats.accuracy || 0) * 100) : 0;
+  const streakDays = stats?.streak_days ?? 0;
 
   const countryPins = useMemo(
     () =>
@@ -40,6 +46,9 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
         startCode,
         completedCodes,
         allowedCodes: availableCodes ?? undefined,
+        includeSeaNeighbors: true,
+        seaNeighborKm: 600,
+        maxSeaNeighbors: 3,
       }),
     [completedCodes, availableCodes]
   );
@@ -138,15 +147,15 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
             <div className="stats-grid">
               <div className="stat">
                 <span className="stat-label">Countries explored</span>
-                <span className="stat-value">12</span>
+                <span className="stat-value">{countriesExplored}</span>
               </div>
               <div className="stat">
                 <span className="stat-label">Accuracy</span>
-                <span className="stat-value">78%</span>
+                <span className="stat-value">{accuracyPercent}%</span>
               </div>
               <div className="stat">
                 <span className="stat-label">Streak</span>
-                <span className="stat-value">5 days</span>
+                <span className="stat-value">{streakDays} days</span>
               </div>
             </div>
 

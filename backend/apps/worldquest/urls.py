@@ -17,6 +17,9 @@ urlpatterns = [
     path("countries/", views.list_countries, name="countries-list"),
     path("countries/available/", views.list_available_countries, name="countries-available"),
 
+    # Progress
+    path("progress/", views.list_progress, name="progress-list"),
+
     # Stats + leaderboard
     path("stats/", views.user_stats, name="user-stats"),
     path("leaderboard/", views.leaderboard, name="leaderboard"),
