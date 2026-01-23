@@ -3,7 +3,12 @@ import Globe, { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import { fetchAvailableCountryCodes } from "../api/countries";
 import { UserStats } from "../api/stats";
-import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
+import {
+  buildRoadmapPins,
+  CountryPin,
+  CountryStatus,
+  getCountryByNumericCode,
+} from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
 
@@ -16,9 +21,9 @@ const statusColor: Record<CountryStatus, string> = {
 };
 
 const statusAltitude: Record<CountryStatus, number> = {
-  locked: 0.15,
-  available: 0.25,
-  completed: 0.3,
+  locked: 0.08,
+  available: 0.12,
+  completed: 0.16,
 };
 
 type MapScreenProps = {
@@ -80,8 +85,24 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
           worldData,
           worldData.objects.countries
         ) as { features: Array<unknown> };
+        const mapped = collection.features.map((polygon) => {
+          const polygonData = polygon as {
+            id?: number | string;
+            properties?: Record<string, unknown>;
+          };
+          const numericId = polygonData.id ?? "";
+          const country = getCountryByNumericCode(numericId);
+          return {
+            ...polygonData,
+            properties: {
+              ...polygonData.properties,
+              code: country?.code,
+              name: country?.name,
+            },
+          };
+        });
         if (isMounted) {
-          setCountryBorders(collection.features);
+          setCountryBorders(mapped);
         }
       })
       .catch(() => {
@@ -104,6 +125,20 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
       name: country.name,
     });
     window.location.hash = `quiz?${query.toString()}`;
+  };
+
+  const handleCountryClick = (polygon: unknown) => {
+    const props = (polygon as { properties?: { code?: string; name?: string } })
+      .properties;
+    const code = props?.code;
+    if (!code) {
+      return;
+    }
+    const pin = countryPins.find((item) => item.code === code);
+    if (!pin) {
+      return;
+    }
+    handleStartQuiz(pin);
   };
 
   return (
@@ -191,10 +226,11 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
                 pointAltitude={(point) =>
                   statusAltitude[(point as CountryPin).status]
                 }
-                pointRadius={0.12}
+                pointRadius={0.24}
                 pointColor={(point) => statusColor[(point as CountryPin).status]}
                 pointLabel={(point) => (point as CountryPin).name}
                 onPointClick={(point) => handleStartQuiz(point as CountryPin)}
+                onPolygonClick={(polygon) => handleCountryClick(polygon)}
                 onGlobeReady={() => {
                   const controls = globeRef.current?.controls();
                   if (controls) {
