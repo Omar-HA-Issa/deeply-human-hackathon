@@ -90,16 +90,14 @@ export function App() {
         countryName={quizParams.name}
         countryCode={quizParams.code}
         onComplete={(passed) => {
-          if (passed) {
+          if (user) {
+            refreshProgress(user);
+          } else if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();
             if (normalizedCode) {
-              if (user) {
-                refreshProgress(user);
-              } else {
-                setCompletedCodes((prev) =>
-                  prev.includes(normalizedCode) ? prev : [...prev, normalizedCode]
-                );
-              }
+              setCompletedCodes((prev) =>
+                prev.includes(normalizedCode) ? prev : [...prev, normalizedCode]
+              );
             }
           }
           window.location.hash = "";
