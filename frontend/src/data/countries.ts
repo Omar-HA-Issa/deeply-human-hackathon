@@ -140,12 +140,16 @@ export function buildRoadmapPins(options: {
     : null;
   const normalizedStart = options.startCode.toUpperCase();
   const completedSet = new Set(
-    [normalizedStart, ...(options.completedCodes ?? [])].map((code) =>
-      code.toUpperCase()
-    )
+    (options.completedCodes ?? []).map((code) => code.toUpperCase())
   );
 
   const availableSet = new Set<string>();
+
+  if (!completedSet.has(normalizedStart)) {
+    if (!allowedSet || allowedSet.has(normalizedStart)) {
+      availableSet.add(normalizedStart);
+    }
+  }
 
   filteredCountries.forEach((country) => {
     if (!completedSet.has(country.code)) {
