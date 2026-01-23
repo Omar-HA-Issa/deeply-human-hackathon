@@ -26,6 +26,48 @@ type CountryData = {
   borders: string[];
 };
 
+const EARTH_RADIUS_KM = 6371;
+
+const toRadians = (value: number) => (value * Math.PI) / 180;
+
+const distanceKm = (a: CountryData, b: CountryData) => {
+  const latDelta = toRadians(b.lat - a.lat);
+  const lngDelta = toRadians(b.lng - a.lng);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+
+  const sinLat = Math.sin(latDelta / 2);
+  const sinLng = Math.sin(lngDelta / 2);
+  const haversine =
+    sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(haversine));
+};
+
+const buildSeaNeighborMap = (
+  countries: CountryData[],
+  maxDistanceKm: number,
+  maxNeighbors: number
+) => {
+  const map = new Map<string, string[]>();
+
+  countries.forEach((country) => {
+    const distances = countries
+      .filter((other) => other.code !== country.code)
+      .map((other) => ({
+        code: other.code,
+        distance: distanceKm(country, other),
+      }))
+      .filter((entry) => entry.distance <= maxDistanceKm)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, maxNeighbors)
+      .map((entry) => entry.code);
+
+    map.set(country.code, distances);
+  });
+
+  return map;
+};
+
 const countryData: CountryData[] = (() => {
   const records = countries as CountryRecord[];
   const cca3ToCca2: Record<string, string> = {};
@@ -79,6 +121,9 @@ export function buildRoadmapPins(options: {
   completedCodes?: string[];
   singleAvailable?: boolean;
   allowedCodes?: string[];
+  includeSeaNeighbors?: boolean;
+  seaNeighborKm?: number;
+  maxSeaNeighbors?: number;
 }): CountryPin[] {
   const allowedSet = options.allowedCodes
     ? new Set(options.allowedCodes.map((code) => code.toUpperCase()))
@@ -86,6 +131,13 @@ export function buildRoadmapPins(options: {
   const filteredCountries = allowedSet
     ? countryData.filter((country) => allowedSet.has(country.code))
     : countryData;
+  const seaNeighborMap = options.includeSeaNeighbors
+    ? buildSeaNeighborMap(
+        filteredCountries,
+        options.seaNeighborKm ?? 600,
+        options.maxSeaNeighbors ?? 3
+      )
+    : null;
   const normalizedStart = options.startCode.toUpperCase();
   const completedSet = new Set(
     [normalizedStart, ...(options.completedCodes ?? [])].map((code) =>
@@ -105,6 +157,15 @@ export function buildRoadmapPins(options: {
         availableSet.add(neighbor);
       }
     });
+
+    if (seaNeighborMap) {
+      const seaNeighbors = seaNeighborMap.get(country.code) ?? [];
+      seaNeighbors.forEach((neighbor) => {
+        if (!completedSet.has(neighbor) && (!allowedSet || allowedSet.has(neighbor))) {
+          availableSet.add(neighbor);
+        }
+      });
+    }
 
   });
 
