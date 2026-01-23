@@ -50,12 +50,12 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
       buildRoadmapPins({
         startCode,
         completedCodes,
-        allowedCodes: availableCodes ?? undefined,
+        allowedCodes: user ? undefined : (availableCodes ?? undefined),
         includeSeaNeighbors: true,
         seaNeighborKm: 600,
         maxSeaNeighbors: 3,
       }),
-    [completedCodes, availableCodes]
+    [completedCodes, availableCodes, user]
   );
 
   useEffect(() => {

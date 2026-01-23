@@ -131,6 +131,8 @@ class UserStats(TimeStampedModel):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="stats")
     xp = models.PositiveIntegerField(default=0)
+    quiz_points = models.PositiveIntegerField(default=0)
+    match_points = models.PositiveIntegerField(default=0)
     total_correct = models.PositiveIntegerField(default=0)
     total_answered = models.PositiveIntegerField(default=0)
     streak_days = models.PositiveIntegerField(default=0)

@@ -90,7 +90,9 @@ export function App() {
         countryName={quizParams.name}
         countryCode={quizParams.code}
         onComplete={(passed) => {
-          if (passed) {
+          if (user) {
+            refreshProgress(user);
+          } else if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();
             if (normalizedCode) {
               if (user) {
