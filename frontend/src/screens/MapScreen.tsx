@@ -21,9 +21,9 @@ const statusColor: Record<CountryStatus, string> = {
 };
 
 const statusAltitude: Record<CountryStatus, number> = {
-  locked: 0.08,
-  available: 0.12,
-  completed: 0.16,
+  locked: 0.15,
+  available: 0.25,
+  completed: 0.3,
 };
 
 type MapScreenProps = {
