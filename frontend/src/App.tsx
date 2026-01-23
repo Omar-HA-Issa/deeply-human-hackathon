@@ -95,9 +95,13 @@ export function App() {
           } else if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();
             if (normalizedCode) {
-              setCompletedCodes((prev) =>
-                prev.includes(normalizedCode) ? prev : [...prev, normalizedCode]
-              );
+              if (user) {
+                refreshProgress(user);
+              } else {
+                setCompletedCodes((prev) =>
+                  prev.includes(normalizedCode) ? prev : [...prev, normalizedCode]
+                );
+              }
             }
           }
           window.location.hash = "";
