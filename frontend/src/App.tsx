@@ -3,6 +3,7 @@ import { AuthUser, logout, me } from "./api/auth";
 import { fetchProgress } from "./api/progress";
 import { fetchUserStats, UserStats } from "./api/stats";
 import { AuthScreen } from "./screens/AuthScreen";
+import { LandingScreen } from "./screens/LandingScreen";
 import { MapScreen } from "./screens/MapScreen";
 import { QuizScreen } from "./screens/QuizScreen";
 
@@ -54,6 +55,15 @@ export function App() {
   }, [user]);
 
   const view = useMemo(() => hash.replace("#", ""), [hash]);
+  const authMode = useMemo(() => {
+    if (!view.startsWith("auth")) {
+      return "login" as const;
+    }
+    const queryString = view.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    const mode = params.get("mode");
+    return mode === "register" ? "register" : "login";
+  }, [view]);
   const quizParams = useMemo(() => {
     if (!view.startsWith("quiz")) {
       return null;
@@ -71,7 +81,7 @@ export function App() {
   };
 
   if (view.startsWith("auth")) {
-    return <AuthScreen onAuthSuccess={setUser} />;
+    return <AuthScreen onAuthSuccess={setUser} initialMode={authMode} />;
   }
 
   if (view.startsWith("quiz") && quizParams?.name && quizParams?.code) {
@@ -98,13 +108,26 @@ export function App() {
     );
   }
 
+  if (!user && !view) {
+    return (
+      <LandingScreen
+        onSignIn={() => {
+          window.location.hash = "auth?mode=login";
+        }}
+        onSignUp={() => {
+          window.location.hash = "auth?mode=register";
+        }}
+      />
+    );
+  }
+
   return (
     <MapScreen
       user={user}
       completedCodes={completedCodes}
       stats={stats}
       onSignIn={() => {
-        window.location.hash = "auth";
+        window.location.hash = "auth?mode=login";
       }}
       onSignOut={handleLogout}
     />

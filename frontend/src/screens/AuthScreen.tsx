@@ -6,10 +6,11 @@ type AuthMode = "login" | "register";
 
 type AuthScreenProps = {
   onAuthSuccess: (user: AuthUser) => void;
+  initialMode?: AuthMode;
 };
 
-export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
-  const [mode, setMode] = useState<AuthMode>("login");
+export function AuthScreen({ onAuthSuccess, initialMode = "login" }: AuthScreenProps) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
