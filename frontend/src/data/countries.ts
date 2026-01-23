@@ -13,6 +13,7 @@ export type CountryPin = {
 type CountryRecord = {
   cca2?: string;
   cca3?: string;
+  ccn3?: string;
   latlng?: number[];
   name?: { common?: string };
   borders?: string[];
@@ -20,6 +21,7 @@ type CountryRecord = {
 
 type CountryData = {
   code: string;
+  numericCode?: string;
   name: string;
   lat: number;
   lng: number;
@@ -83,6 +85,7 @@ const countryData: CountryData[] = (() => {
       const latlng = record.latlng;
       const code = record.cca2;
       const name = record.name?.common;
+      const numericCode = record.ccn3?.padStart(3, "0");
 
       if (!latlng || latlng.length < 2 || !code || !name) {
         return null;
@@ -94,6 +97,7 @@ const countryData: CountryData[] = (() => {
 
       return {
         code: code.toUpperCase(),
+        numericCode,
         name,
         lat: latlng[0],
         lng: latlng[1],
@@ -102,6 +106,14 @@ const countryData: CountryData[] = (() => {
     })
     .filter(Boolean) as CountryData[];
 })();
+
+const numericCodeToCountry = new Map<string, CountryData>();
+
+countryData.forEach((country) => {
+  if (country.numericCode) {
+    numericCodeToCountry.set(country.numericCode, country);
+  }
+});
 
 
 export function buildAllCountryPins(
@@ -114,6 +126,11 @@ export function buildAllCountryPins(
     lng: country.lng,
     status: statusByCode[country.code] ?? "locked",
   }));
+}
+
+export function getCountryByNumericCode(numericCode: string | number) {
+  const key = String(numericCode).padStart(3, "0");
+  return numericCodeToCountry.get(key) ?? null;
 }
 
 export function buildRoadmapPins(options: {
