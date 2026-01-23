@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from django.conf import settings
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ INTERESTING_METRICS = [
     "contraceptive_use_percent_of_women_ages_15_49",
 ]
 
-AI_PROMPT_TEMPLATE = """You are a trivia question generator for WorldQuest, a geography learning app.
+AI_PROMPT_TEMPLATE = """You are a trivia question generator for WorldQuest, a geography learning app that makes learning about countries fascinating.
 
 Country: {country}
 Data:
@@ -105,61 +106,105 @@ Data:
 
 Generate {num_questions} trivia questions following this EXACT structure:
 
-1. "did_you_know" - A hook fact to introduce the question (1 sentence)
+1. "did_you_know" - A fascinating, DETAILED hook fact (2-3 sentences) that DIRECTLY relates to the question. This should make the user curious and set up the question. Include context, comparisons to other countries, or historical background.
+
 2. "prompt" - Simple, direct question (NOT analytical like "What can be inferred...")
+
 3. "choices" - Exactly 4 options
+
 4. "correct_index" - Index of correct answer (0-3)
-5. "surprising_fact" - Starts with "Surprising, right?" - explains WHY the answer is interesting
+
+5. "surprising_fact" - Shown when user gets it WRONG. Start with "Surprising, right?" then explain (2-3 sentences) WHY the correct answer is counterintuitive or interesting. Compare to what people might expect, explain the underlying reasons, or connect it to broader patterns.
+
 6. "insight" - A 5-8 word takeaway lesson
-7. "explanation" - 1-2 sentence explanation (can match surprising_fact)
+
+7. "explanation" - 1-2 sentence explanation
+
+8. "category" - One of: "economic", "social", "physical", "environmental"
 
 EXAMPLE:
 {{
   "questions": [
     {{
-      "did_you_know": "Bhutan rejected GDP as a measure of progress.",
+      "did_you_know": "While most countries chase economic growth, one small Himalayan kingdom decided money isn't everything. In 1972, Bhutan's young king made a radical choice that would influence global discussions about what truly makes a nation successful.",
       "prompt": "What does Bhutan measure instead of GDP?",
       "choices": ["Military strength", "Gross National Happiness", "Population growth", "Land ownership"],
       "correct_index": 1,
-      "surprising_fact": "Surprising, right? Since the 1970s, Bhutan has prioritized Gross National Happiness—measuring psychological wellbeing, health, education, and environmental sustainability over economic growth.",
+      "surprising_fact": "Surprising, right? While you might think economic output is the universal measure of success, Bhutan tracks citizens' psychological wellbeing, health, time use, and cultural resilience. This tiny nation of 750,000 people has inspired the UN to adopt a 'happiness resolution' and dozens of countries to create their own wellbeing indices.",
       "insight": "Countries can choose different definitions of success",
-            "explanation": "Bhutan is known for prioritizing Gross National Happiness over GDP.",
-      "difficulty": 1
+      "explanation": "Bhutan pioneered Gross National Happiness as an alternative to GDP.",
+      "difficulty": 1,
+      "category": "social"
     }}
   ]
 }}
 
-RULES:
-- Questions should be simple and direct
-- Use real data from the metrics provided
-- Cover different topics: health, economy, environment, population, etc.
-- Make surprising_fact genuinely interesting and educational
+CRITICAL RULES FOR "did_you_know" AND "surprising_fact":
+- Both MUST directly relate to the specific question being asked
+- "did_you_know" should BUILD CURIOSITY before the question (shown to everyone)
+- "surprising_fact" should EXPLAIN why the answer defies expectations (shown when wrong)
+- Include specific details: numbers, comparisons, historical context, or cause-and-effect
+- Make them genuinely interesting - imagine telling a friend something that makes them say "Wait, really?!"
+- Avoid generic statements like "This country has interesting statistics"
+
+CRITICAL: BE HONEST AND OBJECTIVE - DO NOT SPIN BAD STATISTICS POSITIVELY:
+- If a statistic is poor (e.g., 67% literacy = 1 in 3 adults can't read), acknowledge it's a challenge, not an achievement
+- If forest coverage is 13%, don't say it "highlights conservation efforts" - that's actually quite low
+- Compare to global averages or other countries to give honest context
+- Low numbers are low. High inequality is bad. Poor health outcomes are concerning.
+- Be factual and educational, not a PR spokesperson for the country
+- It's OK to mention challenges, struggles, or areas needing improvement
+- Example of BAD framing: "Morocco's 13% forest coverage highlights their environmental efforts" (dishonest spin)
+- Example of GOOD framing: "Morocco's 13% forest coverage is among the lowest in the Mediterranean region, reflecting the challenges of desertification" (honest context)
+
+CRITICAL: DATA ACCURACY IS MANDATORY:
+- The correct answer MUST use the EXACT value from the provided data (rounded to nearest whole number if needed)
+- The number in "surprising_fact" and "explanation" MUST MATCH the correct answer EXACTLY
+- NEVER make up or hallucinate numbers - only use what's in the data provided above
+- If the data says "Service Workers Percent Of Employment: 46.2", the correct answer must be ~46%, NOT 60%
+- Double-check: Does your correct_index point to the choice that matches the actual data value?
+- Example of WRONG: Data says 46%, correct answer says 60%, explanation says 46% (INCONSISTENT - FAIL)
+- Example of RIGHT: Data says 46%, correct answer says 46%, explanation says 46% (CONSISTENT - GOOD)
+
+CRITICAL RULES FOR ANSWER CHOICES:
+- ALL numeric choices MUST have the SAME level of precision (all whole numbers OR all with 1 decimal)
+- WRONG: ["90%", "80%", "93.4%", "70%"] - the decimal makes the answer obvious!
+- RIGHT: ["46%", "58%", "35%", "67%"] - all same format, similar plausibility
+- The correct answer must be the ACTUAL value from the data
+- Distractor answers should be plausible but WRONG values (not the real data)
+
+DIMENSIONAL COVERAGE - Generate questions across these categories:
+1. ECONOMIC: GDP, trade, employment, inequality, inflation, billionaires, poverty
+2. SOCIAL: Education, literacy, marriage age, internet access, healthcare, population
+3. PHYSICAL: Life expectancy, BMI, infant mortality, alcohol, smoking, food supply
+4. ENVIRONMENTAL: Forest coverage, CO2 emissions, water resources, agricultural land
+
+You MUST include at least one question from each category.
 
 Respond with ONLY valid JSON, no markdown."""
 
 
 class AIQuestionGenerator:
-    """Generates creative questions and fun facts using Groq (free & fast!)."""
+    """Generates creative questions and fun facts using OpenAI GPT-3.5."""
 
-    # Groq model - llama-3.3-70b
-    MODEL = "llama-3.3-70b-versatile"
+    # OpenAI model - GPT-3.5-turbo for cost efficiency
+    MODEL = "gpt-3.5-turbo"
 
     def __init__(self):
         self._client = None
 
     @property
     def client(self):
-        """Lazy load Groq client."""
+        """Lazy load OpenAI client."""
         if self._client is None:
             try:
-                from groq import Groq
-                api_key = settings.GROQ_API_KEY
+                api_key = settings.OPENAI_API_KEY
                 if not api_key:
-                    logger.warning("GROQ_API_KEY not configured")
+                    logger.warning("OPENAI_API_KEY not configured")
                     return None
-                self._client = Groq(api_key=api_key)
-            except ImportError:
-                logger.warning("Groq package not installed")
+                self._client = OpenAI(api_key=api_key)
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI client: {e}")
                 return None
         return self._client
 
@@ -197,13 +242,163 @@ class AIQuestionGenerator:
             return False
         return True
 
+    def _extract_number_from_text(self, text: str) -> float | None:
+        """Extract a numeric value from text like '46%', '12.5 years', '$5,000', etc."""
+        import re
+        if not text:
+            return None
+        # Remove currency symbols, commas, and common units
+        cleaned = re.sub(r'[$€£,]', '', str(text))
+        # Find numbers (including decimals)
+        matches = re.findall(r'[-+]?\d*\.?\d+', cleaned)
+        if matches:
+            try:
+                return float(matches[0])
+            except ValueError:
+                return None
+        return None
+
+    def _find_matching_metric(self, question_prompt: str, metrics: dict) -> tuple[str, float] | None:
+        """Try to find which metric the question is asking about."""
+        prompt_lower = question_prompt.lower()
+
+        # Map of keywords to metric patterns
+        keyword_mappings = {
+            'life expectancy': ['life expectancy'],
+            'literacy': ['literacy'],
+            'forest': ['forest coverage', 'forest'],
+            'gdp': ['gdp', 'gdppercapita'],
+            'unemployment': ['unemployment'],
+            'infant mortality': ['infant mortality'],
+            'population density': ['population density'],
+            'urban population': ['urban population'],
+            'service': ['service workers'],
+            'agriculture': ['agriculture workers'],
+            'industry': ['industry workers'],
+            'internet': ['internet'],
+            'doctors': ['medical doctors', 'doctors'],
+            'co2': ['co2 emissions'],
+            'alcohol': ['alcohol consumption'],
+            'smoking': ['smoking'],
+            'median age': ['median age'],
+            'fertility': ['teen fertility', 'fertility rate'],
+            'marriage': ['marriage'],
+            'working hours': ['working hours'],
+            'cell phone': ['cell phones'],
+            'broadband': ['broadband'],
+            'cars': ['cars trucks'],
+            'electricity': ['electricity'],
+            'roads': ['roads paved'],
+            'water': ['renewable water'],
+            'agricultural land': ['agricultural land'],
+            'murder': ['murder'],
+            'traffic death': ['traffic deaths'],
+            'suicide': ['suicide'],
+            'military': ['military expenditure'],
+            'armed forces': ['armed forces'],
+            'gasoline': ['pump price', 'gasoline'],
+            'teeth': ['bad teeth'],
+            'bmi': ['body mass index', 'bmi'],
+            'food supply': ['food supply', 'kilocalories'],
+            'sugar': ['sugar'],
+            'inequality': ['inequality', 'gini'],
+            'inflation': ['inflation'],
+            'exports': ['exports'],
+            'imports': ['imports'],
+            'tax': ['tax revenue'],
+            'billionaire': ['billionaire'],
+            'poverty': ['poverty', 'extreme poverty'],
+            'school': ['years in school', 'mean years'],
+            'children out of school': ['children out of school'],
+        }
+
+        # Find which keyword matches the prompt
+        for keyword, metric_patterns in keyword_mappings.items():
+            if keyword in prompt_lower:
+                # Find the matching metric in our data
+                for metric_name, metric_data in metrics.items():
+                    metric_name_lower = metric_name.lower()
+                    for pattern in metric_patterns:
+                        if pattern in metric_name_lower:
+                            value = metric_data.get('value')
+                            if value is not None:
+                                try:
+                                    return (metric_name, float(value))
+                                except (ValueError, TypeError):
+                                    pass
+        return None
+
+    def _validate_and_fix_answer(self, question: dict, metrics: dict) -> dict | None:
+        """
+        Validate that the correct answer matches the actual data.
+        If not, try to fix the correct_index. Returns None if unfixable.
+        """
+        choices = question.get("choices", [])
+        correct_index = question.get("correct_index", 0)
+        prompt = question.get("prompt", "")
+
+        # Try to find which metric this question is about
+        metric_match = self._find_matching_metric(prompt, metrics)
+        if not metric_match:
+            # Can't validate - let it through but log
+            logger.debug(f"Could not match question to metric: {prompt[:50]}...")
+            return question
+
+        metric_name, actual_value = metric_match
+
+        # Extract numbers from all choices
+        choice_values = []
+        for choice in choices:
+            num = self._extract_number_from_text(choice)
+            choice_values.append(num)
+
+        # Check if the current correct answer is close to actual value
+        current_correct_value = choice_values[correct_index]
+        if current_correct_value is not None:
+            tolerance = max(actual_value * 0.15, 2)  # 15% tolerance or at least 2
+            if abs(current_correct_value - actual_value) <= tolerance:
+                # Current answer is correct, no fix needed
+                return question
+
+        # Current answer is wrong - try to find the right choice
+        best_match_index = None
+        best_match_diff = float('inf')
+
+        for i, choice_val in enumerate(choice_values):
+            if choice_val is not None:
+                diff = abs(choice_val - actual_value)
+                if diff < best_match_diff:
+                    best_match_diff = diff
+                    best_match_index = i
+
+        # Check if we found a good match
+        if best_match_index is not None:
+            tolerance = max(actual_value * 0.15, 2)
+            if best_match_diff <= tolerance:
+                logger.warning(
+                    f"Auto-fixed correct_index: {correct_index} -> {best_match_index} "
+                    f"for metric '{metric_name}' (actual: {actual_value}, "
+                    f"was pointing to: {choice_values[correct_index]}, "
+                    f"now pointing to: {choice_values[best_match_index]})"
+                )
+                question["correct_index"] = best_match_index
+                return question
+
+        # No choice matches the actual data - reject this question
+        logger.error(
+            f"Rejecting question - no choice matches actual data. "
+            f"Metric: {metric_name}, Actual value: {actual_value}, "
+            f"Choices: {choices}, Choice values: {choice_values}"
+        )
+        return None
+
     def generate_questions(self, country_name: str, country_data: dict, count: int = 5) -> list:
         """
         Generate ALL questions for a country in a single AI call.
         Returns list of question dicts.
         """
         if not self.client:
-            logger.error("Groq client not available")
+            logger.error("OpenAI client not available")
             return []
 
         # Extract relevant metrics
@@ -249,20 +444,26 @@ class AIQuestionGenerator:
             # Extract questions array
             questions_data = data.get("questions", [])
 
-            # Validate each question
+            # Validate each question and fix answers if needed
             valid_questions = []
             for q in questions_data:
-                if self._validate_question(q):
-                    valid_questions.append(q)
-                else:
-                    logger.warning(f"Invalid question skipped: {q}")
+                if not self._validate_question(q):
+                    logger.warning(f"Invalid question structure skipped: {q}")
+                    continue
 
-            logger.info(f"Generated {len(valid_questions)} questions for {country_name}")
+                # Validate and auto-fix the correct answer against actual data
+                fixed_q = self._validate_and_fix_answer(q, metrics)
+                if fixed_q:
+                    valid_questions.append(fixed_q)
+                else:
+                    logger.warning(f"Question rejected due to data mismatch: {q.get('prompt', '')[:50]}...")
+
+            logger.info(f"Generated {len(valid_questions)} valid questions for {country_name}")
             return valid_questions
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse AI response as JSON: {e}")
             return []
         except Exception as e:
-            logger.error(f"Groq API error: {e}")
+            logger.error(f"OpenAI API error: {e}")
             return []
