@@ -19,6 +19,12 @@ from .models import (
 	Friendship,
 )
 from .services import get_question_generator
+from .services.scoring import (
+	calculate_xp,
+	calculate_quiz_points,
+	calculate_match_points,
+	XP_PER_UNLOCK,
+)
 
 
 User = get_user_model()
@@ -57,6 +63,41 @@ def _get_dataset_country_names() -> set[str]:
 	except Exception:
 		_dataset_country_names = set()
 	return _dataset_country_names
+
+
+def _get_unlocked_countries_for_xp(xp: int) -> list[Country]:
+	available_names = _get_dataset_country_names()
+	if not available_names:
+		return []
+	unlock_count = max(1, 1 + (xp // XP_PER_UNLOCK))
+	qs = Country.objects.filter(name__in=available_names).order_by("order_index", "name")
+	return list(qs[:unlock_count])
+
+
+def _sync_progress_unlocks(user, xp: int) -> list[str]:
+	unlocked_countries = _get_unlocked_countries_for_xp(xp)
+	if not unlocked_countries:
+		return []
+	country_ids = [country.id for country in unlocked_countries]
+	existing = {
+		progress.country_id: progress
+		for progress in Progress.objects.filter(user=user, country_id__in=country_ids)
+	}
+	now = timezone.now()
+	for country in unlocked_countries:
+		progress = existing.get(country.id)
+		if not progress:
+			Progress.objects.create(
+				user=user,
+				country=country,
+				status=Progress.Status.AVAILABLE,
+				unlocked_at=now,
+			)
+		elif progress.status == Progress.Status.LOCKED:
+			progress.status = Progress.Status.AVAILABLE
+			progress.unlocked_at = progress.unlocked_at or now
+			progress.save(update_fields=["status", "unlocked_at"])
+	return [country.iso2 for country in unlocked_countries]
 
 
 @csrf_exempt
@@ -255,7 +296,10 @@ def submit_quiz(request, country_code):
 		})
 
 	total = len(results)
-	score = correct_count * 10  # 10 points per correct answer
+	correct_flags = [result.get("correct", False) for result in results]
+	xp_earned = calculate_xp(correct_flags)
+	points_earned = calculate_quiz_points(correct_count, total)
+	score = points_earned
 
 	# Save attempt if user is authenticated
 	if request.user.is_authenticated:
@@ -286,8 +330,11 @@ def submit_quiz(request, country_code):
 		stats, _ = UserStats.objects.get_or_create(user=request.user)
 		stats.total_answered += total
 		stats.total_correct += correct_count
-		stats.xp += score
+		stats.xp += xp_earned
+		stats.quiz_points += points_earned
 		stats.save()
+
+		_sync_progress_unlocks(request.user, stats.xp)
 
 		# Update progress if user completed quiz successfully
 		if correct_count >= (total * 0.6):  # 60% threshold
@@ -304,6 +351,8 @@ def submit_quiz(request, country_code):
 	return JsonResponse({
 		"ok": True,
 		"score": score,
+		"xp_earned": xp_earned,
+		"points_earned": points_earned,
 		"total": total,
 		"correct_count": correct_count,
 		"results": results,
@@ -353,11 +402,53 @@ def list_available_countries(request):
 	if not available_names:
 		return JsonResponse({"ok": True, "countries": [], "count": 0})
 
+
+	if request.user.is_authenticated:
+		stats, _ = UserStats.objects.get_or_create(user=request.user)
+		unlocked = _get_unlocked_countries_for_xp(stats.xp)
+		return JsonResponse({
+			"ok": True,
+			"countries": [country.iso2 for country in unlocked],
+			"count": len(unlocked),
+		})
+
 	qs = Country.objects.filter(name__in=available_names).order_by("name")
 	return JsonResponse({
 		"ok": True,
 		"countries": [country.iso2 for country in qs],
 		"count": qs.count(),
+	})
+
+
+@require_GET
+def progress_snapshot(request):
+	"""
+	GET /api/progress/
+	Return XP, points, and unlocked/completed countries for the authenticated user.
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	stats, _ = UserStats.objects.get_or_create(user=request.user)
+	completed_codes = list(
+		Progress.objects.filter(
+			user=request.user,
+			status=Progress.Status.COMPLETED,
+		).values_list("country__iso2", flat=True)
+	)
+	unlocked_codes = _sync_progress_unlocks(request.user, stats.xp)
+	next_unlock_xp = (stats.xp // XP_PER_UNLOCK + 1) * XP_PER_UNLOCK
+
+	return JsonResponse({
+		"ok": True,
+		"xp": stats.xp,
+		"quiz_points": stats.quiz_points,
+		"match_points": stats.match_points,
+		"xp_per_unlock": XP_PER_UNLOCK,
+		"next_unlock_xp": next_unlock_xp,
+		"unlocked_countries": unlocked_codes,
+		"completed_countries": completed_codes,
 	})
 
 
@@ -388,12 +479,16 @@ def user_stats(request):
 		"ok": True,
 		"stats": {
 			"xp": stats.xp,
+			"quiz_points": stats.quiz_points,
+			"match_points": stats.match_points,
 			"total_correct": stats.total_correct,
 			"total_answered": total_answered,
 			"accuracy": accuracy,
 			"streak_days": stats.streak_days,
 			"countries_completed": completed_count,
 			"total_attempts": attempts_count,
+			"xp_per_unlock": XP_PER_UNLOCK,
+			"next_unlock_xp": (stats.xp // XP_PER_UNLOCK + 1) * XP_PER_UNLOCK,
 		},
 	})
 
@@ -402,7 +497,7 @@ def user_stats(request):
 def leaderboard(request):
 	"""
 	GET /api/leaderboard/?limit=20
-	Return top users by XP.
+	Return top users by quiz points.
 	"""
 	limit_raw = request.GET.get("limit", "20")
 	try:
@@ -412,7 +507,7 @@ def leaderboard(request):
 	limit = max(1, min(limit, 100))
 
 	stats_qs = UserStats.objects.select_related("user").order_by(
-		"-xp",
+		"-quiz_points",
 		"-total_correct",
 		"-total_answered",
 		"user__username",
@@ -429,6 +524,7 @@ def leaderboard(request):
 				"username": stats.user.username,
 			},
 			"xp": stats.xp,
+			"quiz_points": stats.quiz_points,
 			"total_correct": stats.total_correct,
 			"total_answered": total_answered,
 			"accuracy": accuracy,
@@ -472,6 +568,7 @@ def list_friends(request):
 			"id": friend.id,
 			"username": friend.username,
 			"xp": stats.xp if stats else 0,
+			"quiz_points": stats.quiz_points if stats else 0,
 			"accuracy": accuracy,
 			"streak_days": stats.streak_days if stats else 0,
 		})

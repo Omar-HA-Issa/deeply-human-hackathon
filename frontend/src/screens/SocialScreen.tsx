@@ -170,7 +170,7 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                     </div>
                     <div className="friend-status">
                       <span className="status-dot online" />
-                      {friend.xp} XP
+        						{friend.quizPoints} pts
                     </div>
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                     {entry.username}
                     {entry.isMe ? " (you)" : ""}
                   </span>
-                  <span className="leader-score">{entry.xp} XP</span>
+                  <span className="leader-score">{entry.quizPoints} pts</span>
                 </div>
               ))}
             </div>

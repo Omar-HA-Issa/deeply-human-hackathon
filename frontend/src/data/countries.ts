@@ -79,6 +79,7 @@ export function buildRoadmapPins(options: {
   completedCodes?: string[];
   singleAvailable?: boolean;
   allowedCodes?: string[];
+  unlockedCodes?: string[];
 }): CountryPin[] {
   const allowedSet = options.allowedCodes
     ? new Set(options.allowedCodes.map((code) => code.toUpperCase()))
@@ -114,7 +115,9 @@ export function buildRoadmapPins(options: {
     availableSet.add(sorted[0]);
   }
 
-  return filteredCountries.map((country) => {
+  const baseCountries = allowedSet ? filteredCountries : countryData;
+
+  return baseCountries.map((country) => {
     let status: CountryStatus = "locked";
     if (completedSet.has(country.code)) {
       status = "completed";

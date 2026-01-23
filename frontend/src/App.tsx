@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthUser, logout, me } from "./api/auth";
+import { fetchProgressSnapshot } from "./api/progress";
 import { AuthScreen } from "./screens/AuthScreen";
 import { MapScreen } from "./screens/MapScreen";
 import { QuizScreen } from "./screens/QuizScreen";
@@ -8,6 +9,22 @@ export function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [completedCodes, setCompletedCodes] = useState<string[]>(["ES"]);
+  const [unlockedCodes, setUnlockedCodes] = useState<string[] | null>(null);
+
+  const loadProgress = async () => {
+    if (!user) {
+      return;
+    }
+    try {
+      const snapshot = await fetchProgressSnapshot();
+      const normalized = snapshot.completedCountries.map((code) => code.toUpperCase());
+      setCompletedCodes(normalized.length ? normalized : ["ES"]);
+      setUnlockedCodes(snapshot.unlockedCountries.map((code) => code.toUpperCase()));
+    } catch {
+      setCompletedCodes(["ES"]);
+      setUnlockedCodes(null);
+    }
+  };
 
   useEffect(() => {
     const handleHashChange = () => setHash(window.location.hash);
@@ -20,6 +37,15 @@ export function App() {
       .then((response) => setUser(response.user))
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setCompletedCodes(["ES"]);
+      setUnlockedCodes(null);
+      return;
+    }
+    loadProgress();
+  }, [user]);
 
   const view = useMemo(() => hash.replace("#", ""), [hash]);
   const quizParams = useMemo(() => {
@@ -48,7 +74,9 @@ export function App() {
         countryName={quizParams.name}
         countryCode={quizParams.code}
         onComplete={(passed) => {
-          if (passed) {
+          if (user) {
+            loadProgress();
+          } else if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();
             if (normalizedCode) {
               setCompletedCodes((prev) =>
@@ -66,6 +94,7 @@ export function App() {
     <MapScreen
       user={user}
       completedCodes={completedCodes}
+      unlockedCodes={unlockedCodes ?? undefined}
       onSignIn={() => {
         window.location.hash = "auth";
       }}

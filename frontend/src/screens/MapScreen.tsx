@@ -23,11 +23,12 @@ const statusAltitude: Record<CountryStatus, number> = {
 type MapScreenProps = {
   user: { username: string } | null;
   completedCodes: string[];
+  unlockedCodes?: string[];
   onSignIn: () => void;
   onSignOut: () => void;
 };
 
-export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScreenProps) {
+export function MapScreen({ user, completedCodes, unlockedCodes, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
@@ -39,9 +40,10 @@ export function MapScreen({ user, completedCodes, onSignIn, onSignOut }: MapScre
       buildRoadmapPins({
         startCode,
         completedCodes,
-        allowedCodes: availableCodes ?? undefined,
+        allowedCodes: user ? undefined : (availableCodes ?? undefined),
+        unlockedCodes,
       }),
-    [completedCodes, availableCodes]
+    [completedCodes, availableCodes, unlockedCodes, user]
   );
 
   useEffect(() => {
