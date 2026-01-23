@@ -161,7 +161,10 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     return (
       <div className="quiz-screen">
         <div className="quiz-card">
-          <h2>Loading quiz...</h2>
+          <div className="quiz-loading">
+            <div className="quiz-spinner"></div>
+            <span className="quiz-loading-text">Loading quiz...</span>
+          </div>
         </div>
       </div>
     );
@@ -248,8 +251,21 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     );
   }
 
+  // Helper to strip "Surprising, right?" prefix from text
+  const stripSurprisingPrefix = (text: string | undefined) => {
+    if (!text) return "";
+    return text.replace(/^Surprising,?\s*right\??\s*/i, "").trim();
+  };
+
   return (
     <div className="quiz-screen">
+      <button
+        className="quiz-exit"
+        onClick={() => onComplete(false)}
+        title="Exit quiz"
+      >
+        ✕
+      </button>
       <div className="quiz-card">
         <div className="quiz-meta">
           <div className="quiz-country">
@@ -304,12 +320,14 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
         </div>
 
         {revealedQuestions.has(currentQuestion.id) && (
-          <div className="quiz-fun-card">
-            <div className="quiz-fun-title">Did you know?</div>
+          <div className={`quiz-fun-card ${answerStates[currentQuestion.id]?.isCorrect ? 'correct' : 'wrong'}`}>
+            <div className="quiz-fun-title">
+              {answerStates[currentQuestion.id]?.isCorrect ? "Did you know?" : "Surprising, right?"}
+            </div>
             <p>
-              {currentQuestion.did_you_know ||
-                currentQuestion.surprising_fact ||
-                funFact}
+              {answerStates[currentQuestion.id]?.isCorrect
+                ? (currentQuestion.did_you_know || stripSurprisingPrefix(currentQuestion.surprising_fact) || funFact)
+                : (stripSurprisingPrefix(currentQuestion.surprising_fact) || currentQuestion.did_you_know || funFact)}
             </p>
           </div>
         )}
