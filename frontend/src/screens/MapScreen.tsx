@@ -36,7 +36,7 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
   const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
 
-  const countriesExplored = stats?.countries_completed ?? Math.max(0, completedCodes.length - 1);
+  const countriesExplored = stats?.countries_completed ?? completedCodes.length;
   const accuracyPercent = stats ? Math.round((stats.accuracy || 0) * 100) : 0;
   const streakDays = stats?.streak_days ?? 0;
 

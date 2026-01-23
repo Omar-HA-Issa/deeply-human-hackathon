@@ -9,7 +9,7 @@ import { QuizScreen } from "./screens/QuizScreen";
 export function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [completedCodes, setCompletedCodes] = useState<string[]>(["ES"]);
+  const [completedCodes, setCompletedCodes] = useState<string[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
 
   useEffect(() => {
@@ -26,12 +26,12 @@ export function App() {
 
   const normalizeCompleted = (codes: string[]) => {
     const normalized = codes.map((code) => code.toUpperCase());
-    return Array.from(new Set(["ES", ...normalized]));
+    return Array.from(new Set(normalized));
   };
 
   const refreshProgress = async (currentUser: AuthUser | null) => {
     if (!currentUser) {
-      setCompletedCodes(["ES"]);
+      setCompletedCodes([]);
       setStats(null);
       return;
     }
@@ -44,7 +44,7 @@ export function App() {
       setCompletedCodes(normalizeCompleted(progressResponse.completed_codes ?? []));
       setStats(statsResponse.stats);
     } catch {
-      setCompletedCodes(["ES"]);
+      setCompletedCodes([]);
       setStats(null);
     }
   };
