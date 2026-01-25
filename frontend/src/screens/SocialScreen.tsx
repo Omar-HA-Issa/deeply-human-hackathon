@@ -250,7 +250,7 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                 onChange={(event) => setRequestName(event.target.value)}
               />
               <button
-                className="button primary small"
+                className="button primary small add-friend-button"
                 onClick={handleSendRequest}
                 disabled={isSendingRequest}
               >
