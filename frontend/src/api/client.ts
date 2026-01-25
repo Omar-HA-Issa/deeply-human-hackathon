@@ -15,7 +15,14 @@ async function requestJson<T>(path: string, options: RequestInit = {}) {
 		...options,
 	});
 
-	const data = (await response.json()) as ApiResponse<T>;
+	const payload = await response.text();
+	let data: ApiResponse<T>;
+	try {
+		data = JSON.parse(payload) as ApiResponse<T>;
+	} catch {
+		const statusLabel = response.ok ? "ok" : `status ${response.status}`;
+		throw new Error(`API returned non-JSON response (${statusLabel}).`);
+	}
 	if (!response.ok || data.ok === false) {
 		throw new Error(data.error || "Request failed");
 	}

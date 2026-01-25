@@ -125,3 +125,19 @@ export async function declineFriendRequest(requestId: number) {
     `/api/friends/requests/${requestId}/decline/`
   );
 }
+
+export async function sendFriendRequest(username: string) {
+  return postJson<Record<string, never>>("/api/friends/requests/send/", {
+    username,
+  });
+}
+
+export async function cancelFriendRequest(requestId: number) {
+  return postJson<Record<string, never>>(
+    `/api/friends/requests/${requestId}/cancel/`
+  );
+}
+
+export async function removeFriend(userId: number) {
+  return postJson<Record<string, never>>(`/api/friends/${userId}/remove/`);
+}

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   acceptFriendRequest,
+  cancelFriendRequest,
   declineFriendRequest,
   fetchSocialSnapshot,
   Friend,
   FriendRequest,
   LeaderboardEntry,
+  removeFriend,
+  sendFriendRequest,
 } from "../api/social";
 import "./SocialScreen.css";
 
@@ -24,6 +27,9 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [cheeredIds, setCheeredIds] = useState<Set<number>>(new Set());
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [requestStatus, setRequestStatus] = useState<string | null>(null);
+  const [requestName, setRequestName] = useState("");
+  const [isSendingRequest, setIsSendingRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -82,8 +88,38 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
     await loadSnapshot();
   };
 
+  const handleSendRequest = async () => {
+    const trimmed = requestName.trim();
+    if (!trimmed) {
+      setRequestStatus("Enter a username to send a request.");
+      return;
+    }
+    try {
+      setIsSendingRequest(true);
+      await sendFriendRequest(trimmed);
+      setRequestName("");
+      setRequestStatus("Friend request sent!");
+      await loadSnapshot();
+    } catch (error) {
+      setRequestStatus(error instanceof Error ? error.message : "Request failed");
+    } finally {
+      setIsSendingRequest(false);
+      window.setTimeout(() => setRequestStatus(null), 2200);
+    }
+  };
+
+  const handleCancelRequest = async (requestId: number) => {
+    await cancelFriendRequest(requestId);
+    await loadSnapshot();
+  };
+
+  const handleRemoveFriend = async (friendId: number) => {
+    await removeFriend(friendId);
+    await loadSnapshot();
+  };
+
   const handleInvite = async () => {
-    const inviteLink = `${window.location.origin}/#auth?invite=${encodeURIComponent(
+    const inviteLink = `${window.location.origin}/#auth?mode=register&invite=${encodeURIComponent(
       user?.username ?? "explorer"
     )}`;
     try {
@@ -187,6 +223,12 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                   >
                     {cheeredIds.has(friend.id) ? "Cheered" : "Cheer"}
                   </button>
+                  <button
+                    className="button ghost"
+                    onClick={() => handleRemoveFriend(friend.id)}
+                  >
+                    Remove
+                  </button>
                 </div>
                 </div>
               ))}
@@ -199,6 +241,26 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             <h3>Friend requests</h3>
             <span className="pill muted">{incomingRequests.length} new</span>
           </header>
+          <div className="add-friend-form">
+            <div className="add-friend-fields">
+              <input
+                className="add-friend-input"
+                placeholder="Add by username"
+                value={requestName}
+                onChange={(event) => setRequestName(event.target.value)}
+              />
+              <button
+                className="button primary small"
+                onClick={handleSendRequest}
+                disabled={isSendingRequest}
+              >
+                {isSendingRequest ? "Sending..." : "Send"}
+              </button>
+            </div>
+            {requestStatus ? (
+              <div className="add-friend-status">{requestStatus}</div>
+            ) : null}
+          </div>
           {isLoading ? (
             <div className="empty-state">Loading requests…</div>
           ) : loadError ? (
@@ -237,6 +299,26 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                 : "No requests right now."}
             </div>
           )}
+          {outgoingRequests.length ? (
+            <div className="request-list">
+              {outgoingRequests.map((request) => (
+                <div className="request-row" key={request.id}>
+                  <div>
+                    <div className="friend-name">{request.username}</div>
+                    <div className="friend-meta">Outgoing request</div>
+                  </div>
+                  <div className="request-actions">
+                    <button
+                      className="button ghost small"
+                      onClick={() => handleCancelRequest(request.id)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="card social-panel challenge-panel">

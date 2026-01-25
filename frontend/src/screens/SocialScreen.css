@@ -197,6 +197,37 @@
   gap: 8px;
 }
 
+.add-friend-form {
+  display: grid;
+  gap: 8px;
+}
+
+.add-friend-fields {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.add-friend-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(90, 110, 170, 0.4);
+  background: rgba(12, 18, 38, 0.75);
+  color: #e8eeff;
+  font-size: 13px;
+}
+
+.add-friend-input::placeholder {
+  color: rgba(183, 196, 234, 0.7);
+}
+
+.add-friend-status {
+  font-size: 12px;
+  color: #8fd7ff;
+}
+
 .empty-state {
   padding: 16px;
   border-radius: 14px;
