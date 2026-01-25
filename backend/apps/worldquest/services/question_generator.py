@@ -4,6 +4,7 @@ Handles caching and database operations.
 """
 
 import logging
+import random
 from typing import Optional
 
 from django.db import transaction
@@ -18,13 +19,15 @@ logger = logging.getLogger(__name__)
 class QuestionGenerator:
     """
     Main question generator that:
-    1. Checks DB for cached questions
+    1. Checks DB for cached questions (pool of 15)
     2. If missing, generates ALL questions using AI
-    3. Caches in DB and returns
+    3. Caches in DB and returns random 5 for each quiz
     """
 
-    # Target question counts - ALL AI generated
-    TOTAL_QUESTIONS = 5
+    # Total questions to cache per country (the pool)
+    QUESTIONS_POOL_SIZE = 15
+    # Questions to serve per quiz
+    QUESTIONS_PER_QUIZ = 5
 
     def __init__(self):
         self.template_generator = TemplateQuestionGenerator()  # Used only to load dataset
@@ -55,9 +58,22 @@ class QuestionGenerator:
         except Country.DoesNotExist:
             return None
 
-    def _get_cached_questions(self, country: Country) -> list[Question]:
-        """Get cached questions from DB."""
-        return list(country.questions.all()[:5])
+    def _get_cached_questions(self, country: Country, random_select: bool = True) -> list[Question]:
+        """
+        Get cached questions from DB.
+        If random_select=True, returns random QUESTIONS_PER_QUIZ from the pool.
+        If random_select=False, returns all cached questions (for checking pool size).
+        """
+        all_questions = list(country.questions.all())
+
+        if not random_select:
+            return all_questions
+
+        # Randomly select QUESTIONS_PER_QUIZ from the pool
+        if len(all_questions) <= self.QUESTIONS_PER_QUIZ:
+            return all_questions
+
+        return random.sample(all_questions, self.QUESTIONS_PER_QUIZ)
 
     def _save_template_question(self, country: Country, gen_question) -> Question:
         """Save a template-generated question to DB."""
@@ -124,14 +140,20 @@ class QuestionGenerator:
     def generate_for_country(self, country: Country) -> list[Question]:
         """
         Generate questions for a country using AI.
-        Returns list of questions.
+        Returns a random selection of QUESTIONS_PER_QUIZ questions.
 
+        Maintains a pool of QUESTIONS_POOL_SIZE questions per country.
         ALL questions are AI-generated from the dataset.
         """
-        # Check for cached questions
-        cached = self._get_cached_questions(country)
-        if len(cached) >= self.TOTAL_QUESTIONS:
-            return cached
+        # Check if we have enough questions in the pool
+        all_cached = self._get_cached_questions(country, random_select=False)
+        if len(all_cached) >= self.QUESTIONS_POOL_SIZE:
+            # Pool is full, return random selection
+            return random.sample(all_cached, self.QUESTIONS_PER_QUIZ)
+
+        # Need to generate more questions
+        questions_needed = self.QUESTIONS_POOL_SIZE - len(all_cached)
+        logger.info(f"Generating {questions_needed} new questions for {country.name} (pool: {len(all_cached)}/{self.QUESTIONS_POOL_SIZE})")
 
         # Get country data from dataset
         country_data = self.template_generator.get_country_data(country.name)
@@ -144,23 +166,26 @@ class QuestionGenerator:
                     break
 
         if not country_data:
+            # Return whatever we have cached
+            if all_cached:
+                return random.sample(all_cached, min(len(all_cached), self.QUESTIONS_PER_QUIZ))
             return []
 
-        questions = []
+        new_questions = []
 
-        # Generate ALL questions using AI
+        # Generate questions using AI
         try:
             ai_questions = self.ai_generator.generate_questions(
                 country.name,
                 country_data,
-                count=self.TOTAL_QUESTIONS
+                count=questions_needed
             )
 
             if ai_questions:
                 for ai_q in ai_questions:
                     try:
                         q = self._save_ai_question(country, ai_q)
-                        questions.append(q)
+                        new_questions.append(q)
                     except Exception as e:
                         logger.error(f"Failed to save AI question: {e}")
             else:
@@ -169,12 +194,12 @@ class QuestionGenerator:
                 )
                 template_questions = self.template_generator.generate_questions(
                     country.name,
-                    count=self.TOTAL_QUESTIONS,
+                    count=questions_needed,
                 )
                 for tmpl_q in template_questions:
                     try:
                         q = self._save_template_question(country, tmpl_q)
-                        questions.append(q)
+                        new_questions.append(q)
                     except Exception as e:
                         logger.error(f"Failed to save template question: {e}")
 
@@ -183,16 +208,18 @@ class QuestionGenerator:
 
             template_questions = self.template_generator.generate_questions(
                 country.name,
-                count=self.TOTAL_QUESTIONS,
+                count=questions_needed,
             )
             for tmpl_q in template_questions:
                 try:
                     q = self._save_template_question(country, tmpl_q)
-                    questions.append(q)
+                    new_questions.append(q)
                 except Exception as save_error:
                     logger.error(f"Failed to save template question: {save_error}")
 
-        return questions
+        # Combine cached + new, return random selection
+        all_questions = all_cached + new_questions
+        return random.sample(all_questions, min(len(all_questions), self.QUESTIONS_PER_QUIZ))
 
     def get_questions_for_country(self, country_code: str) -> tuple[list[Question], Optional[str]]:
         """
