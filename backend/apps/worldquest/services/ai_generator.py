@@ -173,6 +173,19 @@ CRITICAL RULES FOR ANSWER CHOICES:
 - The correct answer must be the ACTUAL value from the data
 - Distractor answers should be plausible but WRONG values (not the real data)
 
+CRITICAL: USE CORRECT UNITS:
+- Life expectancy is in YEARS (e.g., "78 years"), NOT percent
+- GDP per capita is in dollars (e.g., "$5,000"), NOT percent
+- Population density is per square km (e.g., "50 per km²")
+- Only use % for actual percentages (employment rate, literacy rate, etc.)
+
+CRITICAL: DO NOT REVEAL ANSWERS IN CHOICES:
+- NEVER include values in comparison question choices
+- WRONG: "Which is higher?" with choices ["Female Life Expectancy (78 years)", "Male Life Expectancy (75 years)"] - answer is obvious!
+- RIGHT: "What is the female life expectancy?" with choices ["72 years", "78 years", "81 years", "69 years"]
+- For comparison questions, ask about ONE specific value, not which is higher/lower
+- AVOID comparison questions entirely - ask direct "What is X?" questions instead
+
 DIMENSIONAL COVERAGE - Generate questions across these categories:
 1. ECONOMIC: GDP, trade, employment, inequality, inflation, billionaires, poverty
 2. SOCIAL: Education, literacy, marriage age, internet access, healthcare, population
@@ -210,6 +223,9 @@ class AIQuestionGenerator:
 
     def _extract_metrics(self, country_data: dict) -> dict:
         """Extract interesting metrics from country data for the AI prompt."""
+        import datetime
+        current_year = datetime.datetime.now().year
+
         metrics = {}
 
         for category_name, category_data in country_data.items():
@@ -220,11 +236,21 @@ class AIQuestionGenerator:
                 if metric_key in category_data:
                     metric = category_data[metric_key]
                     if isinstance(metric, dict) and "value" in metric:
+                        year = metric.get("year")
+
+                        # Skip future projections (year > current year)
+                        if year and year > current_year:
+                            continue
+
+                        # Skip very old data (older than 15 years)
+                        if year and year < current_year - 15:
+                            continue
+
                         # Clean up the metric name for display
                         display_name = metric_key.replace("_", " ").title()
                         metrics[display_name] = {
                             "value": metric["value"],
-                            "year": metric.get("year"),
+                            "year": year,
                         }
 
         return metrics
@@ -352,15 +378,7 @@ class AIQuestionGenerator:
             num = self._extract_number_from_text(choice)
             choice_values.append(num)
 
-        # Check if the current correct answer is close to actual value
-        current_correct_value = choice_values[correct_index]
-        if current_correct_value is not None:
-            tolerance = max(actual_value * 0.15, 2)  # 15% tolerance or at least 2
-            if abs(current_correct_value - actual_value) <= tolerance:
-                # Current answer is correct, no fix needed
-                return question
-
-        # Current answer is wrong - try to find the right choice
+        # Find the best matching choice
         best_match_index = None
         best_match_diff = float('inf')
 
@@ -371,26 +389,26 @@ class AIQuestionGenerator:
                     best_match_diff = diff
                     best_match_index = i
 
-        # Check if we found a good match
-        if best_match_index is not None:
-            tolerance = max(actual_value * 0.15, 2)
-            if best_match_diff <= tolerance:
-                logger.warning(
-                    f"Auto-fixed correct_index: {correct_index} -> {best_match_index} "
-                    f"for metric '{metric_name}' (actual: {actual_value}, "
-                    f"was pointing to: {choice_values[correct_index]}, "
-                    f"now pointing to: {choice_values[best_match_index]})"
-                )
-                question["correct_index"] = best_match_index
-                return question
+        # Check if we found a good match within tolerance
+        tolerance = max(actual_value * 0.15, 2)  # 15% tolerance or at least 2
+        if best_match_index is None or best_match_diff > tolerance:
+            # No choice matches the actual data - reject this question
+            logger.error(
+                f"Rejecting question - no choice matches actual data. "
+                f"Metric: {metric_name}, Actual value: {actual_value}, "
+                f"Choices: {choices}, Choice values: {choice_values}"
+            )
+            return None
 
-        # No choice matches the actual data - reject this question
-        logger.error(
-            f"Rejecting question - no choice matches actual data. "
-            f"Metric: {metric_name}, Actual value: {actual_value}, "
-            f"Choices: {choices}, Choice values: {choice_values}"
-        )
-        return None
+        # Fix correct_index if needed
+        if best_match_index != correct_index:
+            logger.warning(
+                f"Auto-fixed correct_index: {correct_index} -> {best_match_index} "
+                f"for metric '{metric_name}' (actual: {actual_value})"
+            )
+            question["correct_index"] = best_match_index
+
+        return question
 
     def generate_questions(self, country_name: str, country_data: dict, count: int = 5) -> list:
         """
@@ -416,6 +434,9 @@ class AIQuestionGenerator:
         )
 
         try:
+            # Calculate tokens needed: ~300 tokens per question
+            max_tokens = max(2000, count * 350)
+
             response = self.client.chat.completions.create(
                 model=self.MODEL,
                 messages=[
@@ -426,7 +447,7 @@ class AIQuestionGenerator:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.8,
-                max_tokens=2000,  # More tokens for 5 questions
+                max_tokens=max_tokens,
             )
 
             # Parse the response
