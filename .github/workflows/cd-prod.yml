@@ -57,4 +57,4 @@ jobs:
             exit 1;
           fi
           ssh -i ~/.ssh/id_rsa -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd ~/WorldQuest && git checkout $DEPLOY_BRANCH && printf 'OPENAI_API_KEY=%s\n' \"$OPENAI_API_KEY\" > .env.prod && docker compose -f deploy/docker_compose.prod.yml up -d --build"
+            "cd ~/WorldQuest && git checkout $DEPLOY_BRANCH && printf 'OPENAI_API_KEY=%s\n' \"$OPENAI_API_KEY\" > deploy/.env.prod && docker compose -f deploy/docker_compose.prod.yml up -d --build"
