@@ -258,6 +258,7 @@ def submit_quiz(request, country_code):
 		return _json_error("Invalid JSON payload.")
 
 	answers = payload.get("answers", [])
+	skip_progress = bool(payload.get("skip_progress"))
 	if not answers:
 		return _json_error("No answers provided.")
 
@@ -337,27 +338,28 @@ def submit_quiz(request, country_code):
 					is_correct=result.get("correct", False),
 				)
 
-		# Update user stats
-		stats = _get_or_create_userstats(request.user)
-		stats.total_answered += total
-		stats.total_correct += correct_count
-		stats.xp += xp_earned
-		stats.quiz_points += points_earned
-		stats.save()
+		if not skip_progress:
+			# Update user stats
+			stats = _get_or_create_userstats(request.user)
+			stats.total_answered += total
+			stats.total_correct += correct_count
+			stats.xp += xp_earned
+			stats.quiz_points += points_earned
+			stats.save()
 
-		_sync_progress_unlocks(request.user, stats.xp)
+			_sync_progress_unlocks(request.user, stats.xp)
 
-		# Update progress if user completed quiz successfully
-		if correct_count >= (total * 0.6):  # 60% threshold
-			progress, created = Progress.objects.get_or_create(
-				user=request.user,
-				country=country,
-				defaults={"status": Progress.Status.COMPLETED}
-			)
-			if not created and progress.status != Progress.Status.COMPLETED:
-				progress.status = Progress.Status.COMPLETED
-				progress.completed_at = timezone.now()
-				progress.save()
+			# Update progress if user completed quiz successfully
+			if correct_count >= (total * 0.6):  # 60% threshold
+				progress, created = Progress.objects.get_or_create(
+					user=request.user,
+					country=country,
+					defaults={"status": Progress.Status.COMPLETED}
+				)
+				if not created and progress.status != Progress.Status.COMPLETED:
+					progress.status = Progress.Status.COMPLETED
+					progress.completed_at = timezone.now()
+					progress.save()
 
 	return JsonResponse({
 		"ok": True,

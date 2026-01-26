@@ -110,7 +110,7 @@ export function QuizScreen({ countryName, countryCode, matchId, onComplete }: Qu
     setSubmitLoading(true);
     setSubmitError(null);
 
-    submitQuiz(countryCode, payload)
+    submitQuiz(countryCode, payload, { skipProgress: Boolean(matchId) })
       .then((result) => {
         setCorrectCount(result.correct_count);
         setTotalQuestions(result.total);
@@ -121,7 +121,15 @@ export function QuizScreen({ countryName, countryCode, matchId, onComplete }: Qu
         setSubmitError(err instanceof Error ? err.message : "Failed to submit quiz");
       })
       .finally(() => setSubmitLoading(false));
-  }, [answers, countryCode, showResult, submitError, submitLoading, submitted]);
+  }, [
+    answers,
+    countryCode,
+    matchId,
+    showResult,
+    submitError,
+    submitLoading,
+    submitted,
+  ]);
 
   useEffect(() => {
     if (!matchId || !submitted || matchSubmitted || matchSubmitLoading || matchSubmitError) {
