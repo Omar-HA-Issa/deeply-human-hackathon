@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY manage.py /app/
 COPY backend /app/backend
+COPY dataset /app/dataset
 
 EXPOSE 8000
 
