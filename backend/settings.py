@@ -29,9 +29,17 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = 'django-insecure-gd+lnk^^5)4v*mny9)4you#bmk0%+lg-r8@95m_14(o5*5bh&p'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() == 'true'
 
-ALLOWED_HOSTS = []
+_allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts_env.split(',') if host.strip()]
+
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        'worldquest.davidhoerz.com',
+    ]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
