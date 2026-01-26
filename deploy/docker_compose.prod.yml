@@ -18,3 +18,21 @@ services:
       POSTGRES_PASSWORD: trivia
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ""
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  db_data:
