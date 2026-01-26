@@ -134,7 +134,8 @@ export function getCountryByNumericCode(numericCode: string | number) {
 }
 
 export function buildRoadmapPins(options: {
-  startCode: string;
+  startCode?: string;
+  startCodes?: string[];
   completedCodes?: string[];
   singleAvailable?: boolean;
   allowedCodes?: string[];
@@ -155,18 +156,26 @@ export function buildRoadmapPins(options: {
         options.maxSeaNeighbors ?? 3
       )
     : null;
-  const normalizedStart = options.startCode.toUpperCase();
+  const normalizedStarts = (
+    options.startCodes && options.startCodes.length > 0
+      ? options.startCodes
+      : options.startCode
+        ? [options.startCode]
+        : []
+  ).map((code) => code.toUpperCase());
   const completedSet = new Set(
     (options.completedCodes ?? []).map((code) => code.toUpperCase())
   );
 
   const availableSet = new Set<string>();
 
-  if (!completedSet.has(normalizedStart)) {
-    if (!allowedSet || allowedSet.has(normalizedStart)) {
-      availableSet.add(normalizedStart);
+  normalizedStarts.forEach((start) => {
+    if (!completedSet.has(start)) {
+      if (!allowedSet || allowedSet.has(start)) {
+        availableSet.add(start);
+      }
     }
-  }
+  });
 
   filteredCountries.forEach((country) => {
     if (!completedSet.has(country.code)) {
