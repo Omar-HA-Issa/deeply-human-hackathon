@@ -218,6 +218,7 @@ class QuestionGenerator:
 
         # Generate questions using AI
         try:
+            logger.info("Attempting AI question generation for %s", country.name)
             ai_questions = self.ai_generator.generate_questions(
                 country.name,
                 country_data,
@@ -225,6 +226,7 @@ class QuestionGenerator:
             )
 
             if ai_questions:
+                logger.info("AI generation succeeded for %s (%s questions)", country.name, len(ai_questions))
                 for ai_q in ai_questions:
                     try:
                         q = self._save_ai_question(country, ai_q)
@@ -233,7 +235,8 @@ class QuestionGenerator:
                         logger.error(f"Failed to save AI question: {e}")
             else:
                 logger.warning(
-                    "AI generation returned no questions; falling back to template questions."
+                    "AI generation returned no questions for %s; falling back to template questions.",
+                    country.name,
                 )
                 template_questions = self.template_generator.generate_questions(
                     country.name,
@@ -247,7 +250,8 @@ class QuestionGenerator:
                         logger.error(f"Failed to save template question: {e}")
 
         except Exception as e:
-            logger.error(f"AI generation failed: {e}")
+            logger.error("AI generation failed for %s: %s", country.name, e)
+            logger.warning("Falling back to template questions for %s", country.name)
 
             template_questions = self.template_generator.generate_questions(
                 country.name,

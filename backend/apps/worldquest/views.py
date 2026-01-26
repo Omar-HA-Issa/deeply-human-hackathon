@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login, logout
-from django.db import models
+from django.db import IntegrityError, models
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -75,6 +75,14 @@ def _get_unlocked_countries_for_xp(xp: int) -> list[Country]:
 	unlock_count = max(1, 1 + (xp // XP_PER_UNLOCK))
 	qs = Country.objects.filter(name__in=available_names).order_by("order_index", "name")
 	return list(qs[:unlock_count])
+
+
+def _get_or_create_userstats(user):
+	try:
+		stats, _ = UserStats.objects.get_or_create(user=user)
+		return stats
+	except IntegrityError:
+		return UserStats.objects.get(user=user)
 
 
 def _sync_progress_unlocks(user, xp: int) -> list[str]:
@@ -336,7 +344,7 @@ def submit_quiz(request, country_code):
 
 		if not skip_progress:
 			# Update user stats
-			stats, _ = UserStats.objects.get_or_create(user=request.user)
+			stats = _get_or_create_userstats(request.user)
 			stats.total_answered += total
 			stats.total_correct += correct_count
 			stats.xp += xp_earned
@@ -413,7 +421,7 @@ def list_available_countries(request):
 
 
 	if request.user.is_authenticated:
-		stats, _ = UserStats.objects.get_or_create(user=request.user)
+		stats = _get_or_create_userstats(request.user)
 		unlocked = _get_unlocked_countries_for_xp(stats.xp)
 		return JsonResponse({
 			"ok": True,
@@ -439,7 +447,7 @@ def list_progress(request):
 	if auth_error:
 		return auth_error
 
-	stats, _ = UserStats.objects.get_or_create(user=request.user)
+	stats = _get_or_create_userstats(request.user)
 	_sync_progress_unlocks(request.user, stats.xp)
 
 	progress_qs = Progress.objects.filter(user=request.user).select_related("country")
@@ -478,7 +486,7 @@ def user_stats(request):
 	if auth_error:
 		return auth_error
 
-	stats, _ = UserStats.objects.get_or_create(user=request.user)
+	stats = _get_or_create_userstats(request.user)
 	total_answered = stats.total_answered
 	accuracy = (stats.total_correct / total_answered) if total_answered else 0
 	completed_count = Progress.objects.filter(
@@ -1059,7 +1067,7 @@ def submit_match_result(request, match_id):
 		submitted_at=timezone.now(),
 	)
 
-	stats, _ = UserStats.objects.get_or_create(user=request.user)
+	stats = _get_or_create_userstats(request.user)
 	stats.match_points += score
 	stats.save(update_fields=["match_points"])
 

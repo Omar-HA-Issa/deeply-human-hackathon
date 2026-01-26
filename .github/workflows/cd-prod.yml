@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,11 +34,27 @@ jobs:
           DEPLOY_PORT: ${{ secrets.PORT }}
           DEPLOY_USER: ${{ secrets.HETCNER_USER }}
           REPO_URL: https://github.com/${{ github.repository }}.git
+          DEPLOY_BRANCH: ${{ github.ref_name }}
         run: |
           ssh -i ~/.ssh/id_rsa -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "mkdir -p ~/WorldQuest && \
             if [ -d ~/WorldQuest/.git ]; then \
-              cd ~/WorldQuest && git fetch --prune && git checkout main && git pull; \
+              cd ~/WorldQuest && git fetch --prune && git checkout $DEPLOY_BRANCH && git pull; \
             else \
-              git clone \"$REPO_URL\" ~/WorldQuest; \
+              git clone \"$REPO_URL\" ~/WorldQuest && cd ~/WorldQuest && git checkout $DEPLOY_BRANCH; \
             fi"
+
+      - name: Deploy containers on server
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.HETCNER_HOST }}
+          DEPLOY_PORT: ${{ secrets.PORT }}
+          DEPLOY_USER: ${{ secrets.HETCNER_USER }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is missing in GitHub Secrets";
+            exit 1;
+          fi
+          ssh -i ~/.ssh/id_rsa -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd ~/WorldQuest && git checkout $DEPLOY_BRANCH && printf 'OPENAI_API_KEY=%s\n' \"$OPENAI_API_KEY\" > deploy/.env.prod && docker compose -f deploy/docker_compose.prod.yml up -d --build"

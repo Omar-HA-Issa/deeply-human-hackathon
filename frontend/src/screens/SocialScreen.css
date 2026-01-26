@@ -6,9 +6,10 @@
 
 .social-hero {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 20px;
+  padding: 16px 18px;
 }
 
 .social-hero h2 {
@@ -22,11 +23,21 @@
   font-size: 13px;
 }
 
+.muted-subtle {
+  color: #9fb0e3;
+}
+
 .social-hero-actions {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.hero-action-row {
+  display: flex;
   gap: 8px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .invite-status {
@@ -72,6 +83,23 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.friends-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.friends-actions .add-friend-form {
+  flex: 1 1 240px;
+}
+
+.invite-button.button.primary {
+  width: auto;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .panel-header {
@@ -275,6 +303,10 @@
   color: rgba(183, 196, 234, 0.7);
 }
 
+.add-friend-input.compact {
+  max-width: 240px;
+}
+
 .add-friend-status {
   font-size: 12px;
   color: #8fd7ff;
@@ -296,6 +328,11 @@
     flex-direction: column;
     align-items: stretch;
   }
+
+  .friends-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .empty-state {
@@ -304,6 +341,10 @@
   background: rgba(19, 27, 52, 0.6);
   color: #a9b8e6;
   font-size: 13px;
+}
+
+.empty-state.compact {
+  padding: 10px 12px;
 }
 
 .challenge-panel p {
@@ -351,6 +392,23 @@
   color: #b5c2ec;
 }
 
+.panel-subheader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #dfe7ff;
+  margin: 8px 0;
+}
+
+.inline-requests {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(82, 104, 164, 0.25);
+}
+
 @media (max-width: 960px) {
   .social-grid {
     grid-template-columns: 1fr;
@@ -363,5 +421,15 @@
 
   .social-hero-actions {
     align-items: flex-start;
+  }
+
+  .hero-action-row {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .hero-action-row .add-friend-input.compact {
+    max-width: 100%;
+    flex: 1 1 auto;
   }
 }

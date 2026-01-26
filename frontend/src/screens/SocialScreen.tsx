@@ -6,7 +6,6 @@ import {
   fetchSocialSnapshot,
   Friend,
   FriendRequest,
-  LeaderboardEntry,
   removeFriend,
   sendFriendRequest,
 } from "../api/social";
@@ -32,7 +31,6 @@ type SocialScreenProps = {
 export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [matches, setMatches] = useState<FriendMatch[]>([]);
   const [cheeredIds, setCheeredIds] = useState<Set<number>>(new Set());
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
@@ -54,7 +52,6 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
       ]);
       setFriends(snapshot.friends);
       setRequests(snapshot.requests);
-      setLeaderboard(snapshot.leaderboard);
       setMatches(matchList);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Failed to load");
@@ -215,10 +212,6 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
               <span>See who is exploring right now.</span>
             </div>
             <div>
-              <strong>Weekly challenges</strong>
-              <span>Team up and unlock streak rewards.</span>
-            </div>
-            <div>
               <strong>Global leaderboard</strong>
               <span>Track the top explorers worldwide.</span>
             </div>
@@ -235,12 +228,6 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
           <h2>Social</h2>
           <p>Stay connected with your crew across every quiz.</p>
         </div>
-        <div className="social-hero-actions">
-          <button className="button primary" onClick={handleInvite}>
-            Invite friends
-          </button>
-          {inviteStatus ? <span className="invite-status">{inviteStatus}</span> : null}
-        </div>
       </section>
 
       <div className="social-grid">
@@ -249,70 +236,154 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             <h3>Friends</h3>
             <span className="pill">{friends.length} total</span>
           </header>
-          {matchStatus ? (
-            <div className="match-status-banner">{matchStatus}</div>
-          ) : null}
+          <div className="friends-actions">
+            <button className="button primary small invite-button" onClick={handleInvite}>
+              Invite friends
+            </button>
+            <div className="add-friend-form">
+              <div className="add-friend-fields">
+                <input
+                  className="add-friend-input"
+                  placeholder="Add by username"
+                  value={requestName}
+                  onChange={(event) => setRequestName(event.target.value)}
+                />
+                <button
+                  className="button primary small add-friend-button"
+                  onClick={handleSendRequest}
+                  disabled={isSendingRequest}
+                >
+                  {isSendingRequest ? "Sending..." : "Send"}
+                </button>
+              </div>
+              {requestStatus ? (
+                <div className="add-friend-status">{requestStatus}</div>
+              ) : inviteStatus ? (
+                <div className="add-friend-status">{inviteStatus}</div>
+              ) : null}
+            </div>
+          </div>
           {isLoading ? (
             <div className="empty-state">Loading friends…</div>
           ) : loadError ? (
             <div className="empty-state">{loadError}</div>
           ) : (
-            <div className="friend-list">
-              {friends.map((friend) => (
-                <div className="friend-row" key={friend.id}>
-                <div className="friend-main">
-                  <div className="avatar">{friend.username[0]}</div>
-                  <div>
-                    <div className="friend-name">{friend.username}</div>
-                    <div className="friend-meta">
-                      {Math.round(friend.accuracy * 100)}% accuracy
+            <>
+              <div className="friend-list">
+                {friends.map((friend) => (
+                  <div className="friend-row" key={friend.id}>
+                    <div className="friend-main">
+                      <div className="avatar">{friend.username[0]}</div>
+                      <div>
+                        <div className="friend-name">{friend.username}</div>
+                        <div className="friend-meta">
+                          {Math.round(friend.accuracy * 100)}% accuracy
+                        </div>
+                        <div className="friend-status">
+                          <span className="status-dot online" />
+                          {friend.quizPoints} pts
+                        </div>
+                      </div>
                     </div>
-                    <div className="friend-status">
-                      <span className="status-dot online" />
-        						{friend.quizPoints} pts
+                    <div className="friend-details">
+                      <span>{friend.streakDays} day streak</span>
+                      <span>{Math.round(friend.accuracy * 100)}% accuracy</span>
+                    </div>
+                    <div className="friend-action">
+                      <button
+                        className={`button ghost ${
+                          cheeredIds.has(friend.id) ? "cheered" : ""
+                        }`}
+                        onClick={() => handleCheer(friend.id)}
+                      >
+                        {cheeredIds.has(friend.id) ? "Cheered" : "Cheer"}
+                      </button>
+                      <button
+                        className="button ghost"
+                        onClick={() => handleChallengeFriend(friend.id, friend.username)}
+                        disabled={isSendingMatch}
+                      >
+                        Challenge
+                      </button>
+                      <button
+                        className="button ghost"
+                        onClick={() => handleRemoveFriend(friend.id)}
+                      >
+                        Remove
+                      </button>
                     </div>
                   </div>
+                ))}
+              </div>
+
+              <div className="inline-requests">
+                <div className="panel-subheader">
+                  Requests <span className="pill muted">{incomingRequests.length} new</span>
                 </div>
-                <div className="friend-details">
-                  <span>{friend.streakDays} day streak</span>
-                  <span>{Math.round(friend.accuracy * 100)}% accuracy</span>
-                </div>
-                <div className="friend-action">
-                  <button
-                    className={`button ghost ${
-                      cheeredIds.has(friend.id) ? "cheered" : ""
-                    }`}
-                    onClick={() => handleCheer(friend.id)}
-                  >
-                    {cheeredIds.has(friend.id) ? "Cheered" : "Cheer"}
-                  </button>
-                  <button
-                    className="button ghost"
-                    onClick={() => handleChallengeFriend(friend.id, friend.username)}
-                    disabled={isSendingMatch}
-                  >
-                    Challenge
-                  </button>
-                  <button
-                    className="button ghost"
-                    onClick={() => handleRemoveFriend(friend.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-                </div>
-              ))}
-            </div>
+                {incomingRequests.length ? (
+                  <div className="request-list">
+                    {incomingRequests.map((request) => (
+                      <div className="request-row" key={request.id}>
+                        <div>
+                          <div className="friend-name">{request.username}</div>
+                          <div className="friend-meta">Incoming request</div>
+                        </div>
+                        <div className="request-actions">
+                          <button
+                            className="button primary small"
+                            onClick={() => handleAccept(request.id)}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="button ghost small"
+                            onClick={() => handleIgnore(request.id)}
+                          >
+                            Ignore
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state compact">
+                    {outgoingRequests.length
+                      ? `No incoming requests. ${outgoingRequests.length} outgoing pending.`
+                      : "No requests right now."}
+                  </div>
+                )}
+                {outgoingRequests.length ? (
+                  <div className="request-list">
+                    {outgoingRequests.map((request) => (
+                      <div className="request-row" key={request.id}>
+                        <div>
+                          <div className="friend-name">{request.username}</div>
+                          <div className="friend-meta">Outgoing request</div>
+                        </div>
+                        <div className="request-actions">
+                          <button
+                            className="button ghost small"
+                            onClick={() => handleCancelRequest(request.id)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </>
           )}
         </section>
 
         <section className="card social-panel match-panel">
           <header className="panel-header">
-            <h3>Friend matches</h3>
+            <h3>Battle logs</h3>
             <span className="pill muted">{matches.length} total</span>
           </header>
           {isLoading ? (
-            <div className="empty-state">Loading matches…</div>
+            <div className="empty-state">Loading battles…</div>
           ) : loadError ? (
             <div className="empty-state">{loadError}</div>
           ) : matches.length ? (
@@ -337,6 +408,19 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                       : "Tie game"
                     : null;
 
+                const margin =
+                  match.status === "completed" && match.myResult && match.opponentResult
+                    ? match.myResult.score - match.opponentResult.score
+                    : null;
+                const outcomeLabel =
+                  match.status !== "completed"
+                    ? match.status
+                    : margin && margin > 0
+                    ? `Victory by ${margin} pts`
+                    : margin && margin < 0
+                    ? `Defeat by ${Math.abs(margin)} pts`
+                    : "Tie";
+
                 return (
                   <div className="match-row" key={match.id}>
                     <div className="match-main">
@@ -344,7 +428,7 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                         {match.country.name} ({match.country.code})
                       </div>
                       <div className="match-meta">
-                        vs {opponent} · {match.status}
+                        vs {opponent} · {outcomeLabel}
                       </div>
                       {winnerText ? (
                         <div className="match-winner">{winnerText}</div>
@@ -406,137 +490,7 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             </div>
           ) : (
             <div className="empty-state">
-              Challenge a friend to kick off your first match.
-            </div>
-          )}
-        </section>
-
-        <section className="card social-panel">
-          <header className="panel-header">
-            <h3>Friend requests</h3>
-            <span className="pill muted">{incomingRequests.length} new</span>
-          </header>
-          <div className="add-friend-form">
-            <div className="add-friend-fields">
-              <input
-                className="add-friend-input"
-                placeholder="Add by username"
-                value={requestName}
-                onChange={(event) => setRequestName(event.target.value)}
-              />
-              <button
-                className="button primary small add-friend-button"
-                onClick={handleSendRequest}
-                disabled={isSendingRequest}
-              >
-                {isSendingRequest ? "Sending..." : "Send"}
-              </button>
-            </div>
-            {requestStatus ? (
-              <div className="add-friend-status">{requestStatus}</div>
-            ) : null}
-          </div>
-          {isLoading ? (
-            <div className="empty-state">Loading requests…</div>
-          ) : loadError ? (
-            <div className="empty-state">{loadError}</div>
-          ) : incomingRequests.length ? (
-            <div className="request-list">
-              {incomingRequests.map((request) => (
-                <div className="request-row" key={request.id}>
-                  <div>
-                    <div className="friend-name">{request.username}</div>
-                    <div className="friend-meta">
-                      Incoming request
-                    </div>
-                  </div>
-                  <div className="request-actions">
-                    <button
-                      className="button primary small"
-                      onClick={() => handleAccept(request.id)}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      className="button ghost small"
-                      onClick={() => handleIgnore(request.id)}
-                    >
-                      Ignore
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              {outgoingRequests.length
-                ? `No incoming requests. ${outgoingRequests.length} outgoing pending.`
-                : "No requests right now."}
-            </div>
-          )}
-          {outgoingRequests.length ? (
-            <div className="request-list">
-              {outgoingRequests.map((request) => (
-                <div className="request-row" key={request.id}>
-                  <div>
-                    <div className="friend-name">{request.username}</div>
-                    <div className="friend-meta">Outgoing request</div>
-                  </div>
-                  <div className="request-actions">
-                    <button
-                      className="button ghost small"
-                      onClick={() => handleCancelRequest(request.id)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="card social-panel challenge-panel">
-          <header className="panel-header">
-            <h3>Weekly challenge</h3>
-            <span className="pill">2 days left</span>
-          </header>
-          <div className="challenge-body">
-            <strong>Border hop streak</strong>
-            <p>Complete 3 connected quizzes to keep your streak glowing.</p>
-            <div className="challenge-progress">
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: "66%" }} />
-              </div>
-              <div className="challenge-foot">
-                <span>2 / 3 complete</span>
-                <button className="button ghost">Continue</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="card social-panel">
-          <header className="panel-header">
-            <h3>Top explorers</h3>
-            <span className="pill muted">This week</span>
-          </header>
-          {isLoading ? (
-            <div className="empty-state">Loading leaderboard…</div>
-          ) : loadError ? (
-            <div className="empty-state">{loadError}</div>
-          ) : (
-            <div className="leaderboard-list">
-              {leaderboard.map((entry, index) => (
-                <div className="leaderboard-row" key={entry.userId}>
-                  <span className="rank">#{index + 1}</span>
-                  <span className="leader-name">
-                    {entry.username}
-                    {entry.isMe ? " (you)" : ""}
-                  </span>
-                  <span className="leader-score">{entry.quizPoints} pts</span>
-                </div>
-              ))}
+              Challenge a friend to kick off your first battle log.
             </div>
           )}
         </section>

@@ -1,38 +1,53 @@
 services:
   db:
-		image: postgres:15
-		environment:
-			POSTGRES_DB: trivia
-			POSTGRES_USER: trivia
-			POSTGRES_PASSWORD: trivia
-		volumes:
-			- db_data:/var/lib/postgresql/data
+    image: postgres:15
+    environment:
+      POSTGRES_DB: trivia
+      POSTGRES_USER: trivia
+      POSTGRES_PASSWORD: trivia
+    volumes:
+      - db_data:/var/lib/postgresql/data
 
-	backend:
-		build:
-			context: ..
-			dockerfile: backend/Dockerfile
-		environment:
-			POSTGRES_DB: trivia
-			POSTGRES_USER: trivia
-			POSTGRES_PASSWORD: trivia
-			POSTGRES_HOST: db
-			POSTGRES_PORT: 5432
-		depends_on:
-			- db
-		ports:
-			- "8000:8000"
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: worldquest_backend
+    env_file:
+      - .env.prod
+    environment:
+      POSTGRES_DB: trivia
+      POSTGRES_USER: trivia
+      POSTGRES_PASSWORD: trivia
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      DJANGO_ALLOWED_HOSTS: worldquest.davidhoerz.com
+      DJANGO_DEBUG: "false"
+    depends_on:
+      - db
+    expose:
+      - "8000"
+    command: ["/bin/sh", "-c", "python manage.py migrate && python manage.py load_countries && python manage.py runserver 0.0.0.0:8000"]
 
-	frontend:
-		build:
-			context: ..
-			dockerfile: frontend/Dockerfile.prod
-			args:
-				VITE_API_BASE_URL: ""
-		depends_on:
-			- backend
-		ports:
-			- "80:80"
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ""
+    image: worldquest
+    container_name: worldquest_frontend
+    depends_on:
+      - backend
+    networks:
+      - default
+      - proxy
+    expose:
+      - "80"
 
 volumes:
-	db_data:
+  db_data:
+
+networks:
+  proxy:
+    external: true

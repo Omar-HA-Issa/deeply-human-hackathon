@@ -141,3 +141,29 @@ export async function cancelFriendRequest(requestId: number) {
 export async function removeFriend(userId: number) {
   return postJson<Record<string, never>>(`/api/friends/${userId}/remove/`);
 }
+
+export async function fetchLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
+  const response = await getJson<LeaderboardResponse>(`/api/leaderboard/?limit=${limit}`);
+  return response.leaderboard.map((entry) => ({
+    rank: entry.rank,
+    userId: entry.user.id,
+    username: entry.user.username,
+    xp: entry.xp,
+    quizPoints: entry.quiz_points,
+    accuracy: entry.accuracy,
+    streakDays: entry.streak_days,
+    isMe: entry.is_me,
+  }));
+}
+
+export async function fetchFriends(): Promise<Friend[]> {
+  const friendsResponse = await getJson<FriendsResponse>("/api/friends/");
+  return friendsResponse.friends.map((friend) => ({
+    id: friend.id,
+    username: friend.username,
+    xp: friend.xp,
+    quizPoints: friend.quiz_points,
+    accuracy: friend.accuracy,
+    streakDays: friend.streak_days,
+  }));
+}
