@@ -12,7 +12,7 @@ import {
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
 
-const startCode = "ES";
+const startCodes = ["US", "ES", "IN", "CD", "AU"];
 
 const statusColor: Record<CountryStatus, string> = {
   locked: "#F87171",
@@ -59,7 +59,7 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
   const countryPins = useMemo(
     () =>
       buildRoadmapPins({
-        startCode,
+        startCodes,
         completedCodes,
         allowedCodes,
         includeSeaNeighbors: true,

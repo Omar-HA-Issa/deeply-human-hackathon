@@ -1,0 +1,42 @@
+name: Build Production Images
+
+on:
+  push:
+    branches: [prod]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production compose
+        run: docker compose -f deploy/docker_compose.prod.yml build
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HETCNER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HETCNER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Ensure WorldQuest repo on server
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.HETCNER_HOST }}
+          DEPLOY_PORT: ${{ secrets.PORT }}
+          DEPLOY_USER: ${{ secrets.HETCNER_USER }}
+          REPO_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          ssh -i ~/.ssh/id_rsa -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p ~/WorldQuest && \
+            if [ -d ~/WorldQuest/.git ]; then \
+              cd ~/WorldQuest && git fetch --prune && git checkout main && git pull; \
+            else \
+              git clone \"$REPO_URL\" ~/WorldQuest; \
+            fi"

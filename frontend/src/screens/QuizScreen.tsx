@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { submitMatchResult } from "../api/matches";
 import { fetchQuiz, QuizApiQuestion, QuizSubmitResponse, submitQuiz } from "../api/quiz";
 import "./QuizScreen.css";
 
 type QuizScreenProps = {
   countryName: string;
   countryCode: string;
+  matchId?: number;
   onComplete: (passed: boolean) => void;
 };
-export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenProps) {
+export function QuizScreen({ countryName, countryCode, matchId, onComplete }: QuizScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
@@ -22,6 +24,9 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [matchSubmitted, setMatchSubmitted] = useState(false);
+  const [matchSubmitError, setMatchSubmitError] = useState<string | null>(null);
+  const [matchSubmitLoading, setMatchSubmitLoading] = useState(false);
   const [answerStates, setAnswerStates] = useState<
     Record<number, { selectedIndex: number; isCorrect: boolean }>
   >({});
@@ -44,6 +49,9 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     setSubmitError(null);
     setAnswerStates({});
     setRevealedQuestions(new Set());
+    setMatchSubmitted(false);
+    setMatchSubmitError(null);
+    setMatchSubmitLoading(false);
 
     fetchQuiz(countryCode)
       .then((response) => {
@@ -102,7 +110,7 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
     setSubmitLoading(true);
     setSubmitError(null);
 
-    submitQuiz(countryCode, payload)
+    submitQuiz(countryCode, payload, { skipProgress: Boolean(matchId) })
       .then((result) => {
         setCorrectCount(result.correct_count);
         setTotalQuestions(result.total);
@@ -113,7 +121,39 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
         setSubmitError(err instanceof Error ? err.message : "Failed to submit quiz");
       })
       .finally(() => setSubmitLoading(false));
-  }, [answers, countryCode, showResult, submitError, submitLoading, submitted]);
+  }, [
+    answers,
+    countryCode,
+    matchId,
+    showResult,
+    submitError,
+    submitLoading,
+    submitted,
+  ]);
+
+  useEffect(() => {
+    if (!matchId || !submitted || matchSubmitted || matchSubmitLoading || matchSubmitError) {
+      return;
+    }
+    if (!totalQuestions) {
+      return;
+    }
+    setMatchSubmitLoading(true);
+    submitMatchResult(matchId, correctCount, totalQuestions)
+      .then(() => setMatchSubmitted(true))
+      .catch((err) => {
+        setMatchSubmitError(err instanceof Error ? err.message : "Failed to submit match");
+      })
+      .finally(() => setMatchSubmitLoading(false));
+  }, [
+    correctCount,
+    matchId,
+    matchSubmitted,
+    matchSubmitError,
+    matchSubmitLoading,
+    submitted,
+    totalQuestions,
+  ]);
 
   const handleFinish = () => {
     onComplete(correctCount >= 3);
@@ -223,6 +263,21 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
           )}
           {submitLoading && <p className="quiz-muted">Submitting your answers...</p>}
           {submitError && <p className="quiz-error">{submitError}</p>}
+          {matchId && matchSubmitLoading && (
+            <p className="quiz-muted">Submitting match result...</p>
+          )}
+          {matchId && matchSubmitted && !matchSubmitError && (
+            <p className="quiz-success">Match result submitted!</p>
+          )}
+          {matchId && matchSubmitError && <p className="quiz-error">{matchSubmitError}</p>}
+          {matchId && matchSubmitError && (
+            <button
+              className="quiz-secondary"
+              onClick={() => setMatchSubmitError(null)}
+            >
+              Retry match submission
+            </button>
+          )}
           {submitError && (
             <button
               className="quiz-secondary"
@@ -234,7 +289,11 @@ export function QuizScreen({ countryName, countryCode, onComplete }: QuizScreenP
           <button
             className="quiz-primary"
             onClick={handleFinish}
-            disabled={submitLoading || !submitted}
+            disabled={
+              submitLoading ||
+              !submitted ||
+              (matchId ? matchSubmitLoading || !!matchSubmitError : false)
+            }
           >
             {passed ? "Unlock next country" : "Try again"}
           </button>
