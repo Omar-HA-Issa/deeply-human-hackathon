@@ -22,13 +22,6 @@
   font-size: 13px;
 }
 
-.social-hero-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-end;
-}
-
 .invite-status {
   font-size: 12px;
   color: #8fd7ff;
@@ -72,6 +65,23 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.friends-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.friends-actions .add-friend-form {
+  flex: 1 1 240px;
+}
+
+.invite-button.button.primary {
+  width: auto;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .panel-header {
@@ -242,6 +252,11 @@
 
 @media (max-width: 720px) {
   .add-friend-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .friends-actions {
     flex-direction: column;
     align-items: stretch;
   }
