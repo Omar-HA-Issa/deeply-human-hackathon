@@ -1,9 +1,9 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json* /app/
-RUN npm install --include=dev
+RUN npm ci --include=dev
 
 COPY frontend /app
 
