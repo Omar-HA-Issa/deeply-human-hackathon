@@ -6,3 +6,6 @@ pycountry==24.6.1
 openai==1.62.0
 groq==0.12.0
 python-dotenv==1.0.1
+gunicorn==23.0.0
+whitenoise==6.7.0
+dj-database-url==2.2.0
