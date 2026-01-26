@@ -3,13 +3,14 @@ import { AuthUser, logout, me } from "./api/auth";
 import { fetchProgress } from "./api/progress";
 import { fetchUserStats, UserStats } from "./api/stats";
 import { AuthScreen } from "./screens/AuthScreen";
+import { LandingScreen } from "./screens/LandingScreen";
 import { MapScreen } from "./screens/MapScreen";
 import { QuizScreen } from "./screens/QuizScreen";
 
 export function App() {
   const [hash, setHash] = useState(window.location.hash);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [completedCodes, setCompletedCodes] = useState<string[]>(["ES"]);
+  const [completedCodes, setCompletedCodes] = useState<string[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
 
   useEffect(() => {
@@ -26,12 +27,12 @@ export function App() {
 
   const normalizeCompleted = (codes: string[]) => {
     const normalized = codes.map((code) => code.toUpperCase());
-    return Array.from(new Set(["ES", ...normalized]));
+    return Array.from(new Set(normalized));
   };
 
   const refreshProgress = async (currentUser: AuthUser | null) => {
     if (!currentUser) {
-      setCompletedCodes(["ES"]);
+      setCompletedCodes([]);
       setStats(null);
       return;
     }
@@ -44,7 +45,7 @@ export function App() {
       setCompletedCodes(normalizeCompleted(progressResponse.completed_codes ?? []));
       setStats(statsResponse.stats);
     } catch {
-      setCompletedCodes(["ES"]);
+      setCompletedCodes([]);
       setStats(null);
     }
   };
@@ -54,6 +55,27 @@ export function App() {
   }, [user]);
 
   const view = useMemo(() => hash.replace("#", ""), [hash]);
+  const authMode = useMemo(() => {
+    if (!view.startsWith("auth")) {
+      return "login" as const;
+    }
+    const queryString = view.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    const mode = params.get("mode");
+    const invite = params.get("invite");
+    if (!mode && invite) {
+      return "register" as const;
+    }
+    return mode === "register" ? "register" : "login";
+  }, [view]);
+  const authInvite = useMemo(() => {
+    if (!view.startsWith("auth")) {
+      return null;
+    }
+    const queryString = view.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    return params.get("invite");
+  }, [view]);
   const quizParams = useMemo(() => {
     if (!view.startsWith("quiz")) {
       return null;
@@ -71,7 +93,13 @@ export function App() {
   };
 
   if (view.startsWith("auth")) {
-    return <AuthScreen onAuthSuccess={setUser} />;
+    return (
+      <AuthScreen
+        onAuthSuccess={setUser}
+        initialMode={authMode}
+        inviteFrom={authInvite}
+      />
+    );
   }
 
   if (view.startsWith("quiz") && quizParams?.name && quizParams?.code) {
@@ -80,7 +108,9 @@ export function App() {
         countryName={quizParams.name}
         countryCode={quizParams.code}
         onComplete={(passed) => {
-          if (passed) {
+          if (user) {
+            refreshProgress(user);
+          } else if (passed) {
             const normalizedCode = quizParams.code.toUpperCase();
             if (normalizedCode) {
               if (user) {
@@ -98,13 +128,26 @@ export function App() {
     );
   }
 
+  if (!user && !view) {
+    return (
+      <LandingScreen
+        onSignIn={() => {
+          window.location.hash = "auth?mode=login";
+        }}
+        onSignUp={() => {
+          window.location.hash = "auth?mode=register";
+        }}
+      />
+    );
+  }
+
   return (
     <MapScreen
       user={user}
       completedCodes={completedCodes}
       stats={stats}
       onSignIn={() => {
-        window.location.hash = "auth";
+        window.location.hash = "auth?mode=login";
       }}
       onSignOut={handleLogout}
     />

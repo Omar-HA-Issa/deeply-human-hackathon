@@ -3,7 +3,12 @@ import Globe, { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import { fetchAvailableCountryCodes } from "../api/countries";
 import { UserStats } from "../api/stats";
-import { buildRoadmapPins, CountryPin, CountryStatus } from "../data/countries";
+import {
+  buildRoadmapPins,
+  CountryPin,
+  CountryStatus,
+  getCountryByNumericCode,
+} from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
 import "./MapScreen.css";
 
@@ -16,9 +21,9 @@ const statusColor: Record<CountryStatus, string> = {
 };
 
 const statusAltitude: Record<CountryStatus, number> = {
-  locked: 0.15,
-  available: 0.25,
-  completed: 0.3,
+  locked: 0.08,
+  available: 0.12,
+  completed: 0.16,
 };
 
 type MapScreenProps = {
@@ -35,22 +40,33 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
   const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
   const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
+  const [showStats, setShowStats] = useState(false);
 
-  const countriesExplored = stats?.countries_completed ?? Math.max(0, completedCodes.length - 1);
+  const countriesExplored = stats?.countries_completed ?? completedCodes.length;
   const accuracyPercent = stats ? Math.round((stats.accuracy || 0) * 100) : 0;
   const streakDays = stats?.streak_days ?? 0;
+
+  const allowedCodes = useMemo(() => {
+    if (user) {
+      return undefined;
+    }
+    if (!availableCodes || availableCodes.length === 0) {
+      return undefined;
+    }
+    return availableCodes;
+  }, [availableCodes, user]);
 
   const countryPins = useMemo(
     () =>
       buildRoadmapPins({
         startCode,
         completedCodes,
-        allowedCodes: availableCodes ?? undefined,
+        allowedCodes,
         includeSeaNeighbors: true,
         seaNeighborKm: 600,
         maxSeaNeighbors: 3,
       }),
-    [completedCodes, availableCodes]
+    [completedCodes, allowedCodes]
   );
 
   useEffect(() => {
@@ -80,8 +96,24 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
           worldData,
           worldData.objects.countries
         ) as { features: Array<unknown> };
+        const mapped = collection.features.map((polygon) => {
+          const polygonData = polygon as {
+            id?: number | string;
+            properties?: Record<string, unknown>;
+          };
+          const numericId = polygonData.id ?? "";
+          const country = getCountryByNumericCode(numericId);
+          return {
+            ...polygonData,
+            properties: {
+              ...polygonData.properties,
+              code: country?.code,
+              name: country?.name,
+            },
+          };
+        });
         if (isMounted) {
-          setCountryBorders(collection.features);
+          setCountryBorders(mapped);
         }
       })
       .catch(() => {
@@ -104,6 +136,20 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
       name: country.name,
     });
     window.location.hash = `quiz?${query.toString()}`;
+  };
+
+  const handleCountryClick = (polygon: unknown) => {
+    const props = (polygon as { properties?: { code?: string; name?: string } })
+      .properties;
+    const code = props?.code;
+    if (!code) {
+      return;
+    }
+    const pin = countryPins.find((item) => item.code === code);
+    if (!pin) {
+      return;
+    }
+    handleStartQuiz(pin);
   };
 
   return (
@@ -141,34 +187,11 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
       </nav>
 
       {activeTab === "roadmap" ? (
-        <main className="main-grid">
-          <section className="card stats-card">
-            <h3>Your stats</h3>
-            <div className="stats-grid">
-              <div className="stat">
-                <span className="stat-label">Countries explored</span>
-                <span className="stat-value">{countriesExplored}</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">Accuracy</span>
-                <span className="stat-value">{accuracyPercent}%</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">Streak</span>
-                <span className="stat-value">{streakDays} days</span>
-              </div>
-            </div>
-
-            <div className="selected-country">
-              <span>Selected</span>
-              <strong>{selectedCountry ?? "Pick a pin"}</strong>
-            </div>
-          </section>
-
+        <main className="roadmap-layout">
           <section className="card globe-card">
             <div className="globe-header">
               <div>
-                <h2>Roadmap from Spain</h2>
+                <h2>Roadmap</h2>
                 <p>Connected countries unlock next steps.</p>
               </div>
               <div className="chip">Live pins</div>
@@ -191,10 +214,11 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
                 pointAltitude={(point) =>
                   statusAltitude[(point as CountryPin).status]
                 }
-                pointRadius={0.12}
+                pointRadius={0.24}
                 pointColor={(point) => statusColor[(point as CountryPin).status]}
                 pointLabel={(point) => (point as CountryPin).name}
                 onPointClick={(point) => handleStartQuiz(point as CountryPin)}
+                onPolygonClick={(polygon) => handleCountryClick(polygon)}
                 onGlobeReady={() => {
                   const controls = globeRef.current?.controls();
                   if (controls) {
@@ -203,6 +227,59 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
                 }}
               />
             </div>
+
+            <button
+              className="stats-toggle"
+              type="button"
+              onClick={() => setShowStats((prev) => !prev)}
+              aria-label="Toggle stats"
+            >
+              📊
+            </button>
+            {showStats && (
+              <div className="stats-panel">
+                <div className="stats-panel-header">
+                  <h3>Your stats</h3>
+                  <button
+                    className="stats-close"
+                    type="button"
+                    onClick={() => setShowStats(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="stats-grid">
+                  <div className="stat">
+                    <span className="stat-label">Countries explored</span>
+                    <span className="stat-value">{countriesExplored}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Accuracy</span>
+                    <span className="stat-value">{accuracyPercent}%</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Streak</span>
+                    <span className="stat-value">{streakDays} days</span>
+                  </div>
+                </div>
+                <div className="stats-divider" />
+                <div className="stats-subtitle">Scoring</div>
+                <div className="stats-grid">
+                  <div className="stat">
+                    <span className="stat-label">XP per correct</span>
+                    <span className="stat-value">10</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Streak bonus</span>
+                    <span className="stat-value">+20% each streak</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Quiz points</span>
+                    <span className="stat-value">0–100 by accuracy</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         </main>
       ) : (

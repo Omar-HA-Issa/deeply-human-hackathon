@@ -4,6 +4,7 @@ export type Friend = {
   id: number;
   username: string;
   xp: number;
+  quizPoints: number;
   accuracy: number;
   streakDays: number;
 };
@@ -20,6 +21,7 @@ export type LeaderboardEntry = {
   userId: number;
   username: string;
   xp: number;
+  quizPoints: number;
   accuracy: number;
   streakDays: number;
   isMe: boolean;
@@ -36,6 +38,7 @@ type FriendsResponse = {
     id: number;
     username: string;
     xp: number;
+    quiz_points: number;
     accuracy: number;
     streak_days: number;
   }>;
@@ -59,6 +62,7 @@ type LeaderboardResponse = {
     rank: number;
     user: { id: number; username: string };
     xp: number;
+    quiz_points: number;
     accuracy: number;
     streak_days: number;
     is_me: boolean;
@@ -76,6 +80,7 @@ export async function fetchSocialSnapshot(): Promise<SocialSnapshot> {
     id: friend.id,
     username: friend.username,
     xp: friend.xp,
+    quizPoints: friend.quiz_points,
     accuracy: friend.accuracy,
     streakDays: friend.streak_days,
   }));
@@ -100,6 +105,7 @@ export async function fetchSocialSnapshot(): Promise<SocialSnapshot> {
     userId: entry.user.id,
     username: entry.user.username,
     xp: entry.xp,
+    quizPoints: entry.quiz_points,
     accuracy: entry.accuracy,
     streakDays: entry.streak_days,
     isMe: entry.is_me,
@@ -118,4 +124,20 @@ export async function declineFriendRequest(requestId: number) {
   return postJson<Record<string, never>>(
     `/api/friends/requests/${requestId}/decline/`
   );
+}
+
+export async function sendFriendRequest(username: string) {
+  return postJson<Record<string, never>>("/api/friends/requests/send/", {
+    username,
+  });
+}
+
+export async function cancelFriendRequest(requestId: number) {
+  return postJson<Record<string, never>>(
+    `/api/friends/requests/${requestId}/cancel/`
+  );
+}
+
+export async function removeFriend(userId: number) {
+  return postJson<Record<string, never>>(`/api/friends/${userId}/remove/`);
 }

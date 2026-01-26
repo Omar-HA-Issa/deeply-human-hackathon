@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { AuthUser, login, register } from "../api/auth";
+import { sendFriendRequest } from "../api/social";
 import "./AuthScreen.css";
 
 type AuthMode = "login" | "register";
 
 type AuthScreenProps = {
   onAuthSuccess: (user: AuthUser) => void;
+  initialMode?: AuthMode;
+  inviteFrom?: string | null;
 };
 
-export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
-  const [mode, setMode] = useState<AuthMode>("login");
+export function AuthScreen({
+  onAuthSuccess,
+  initialMode = "login",
+  inviteFrom = null,
+}: AuthScreenProps) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +34,13 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           ? await login(username, password)
           : await register(username, email, password);
       onAuthSuccess(response.user);
+      if (inviteFrom && response.user.username.toLowerCase() !== inviteFrom.toLowerCase()) {
+        try {
+          await sendFriendRequest(inviteFrom);
+        } catch {
+          // Ignore invite errors to avoid blocking auth flow.
+        }
+      }
       window.location.hash = "";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -40,7 +54,10 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       <div className="auth-card">
         <div className="auth-header">
           <h1>WorldQuest</h1>
-          <p>{mode === "login" ? "Welcome back" : "Create your account"}</p>
+          <p>
+            {mode === "login" ? "Welcome back" : "Create your account"}
+            {inviteFrom ? ` to connect with ${inviteFrom}` : ""}
+          </p>
         </div>
 
         <div className="auth-toggle">
