@@ -46,5 +46,7 @@ This is more than trivia—it's a ritual of learning and shared discovery.
 ## Tech stack
 - **Frontend:** React + TypeScript
 - **Backend:** Django
-- **Data:** Custom country + quiz datasets
+- **Data:** Custom country + quiz datasets (provided by Deeply Human)
 - **Auth & Social:** Friend system and match flow
+
+WorldQuest was built with care with the help of Deeply Human because learning the world is a pathway to knowing ourselves. We hope this project helps people build awareness, compassion, and a deeper sense of shared humanity.
