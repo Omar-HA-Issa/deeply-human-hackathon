@@ -32,4 +32,12 @@ urlpatterns = [
     path("friends/requests/<int:request_id>/decline/", views.decline_friend_request, name="friend-request-decline"),
     path("friends/requests/<int:request_id>/cancel/", views.cancel_friend_request, name="friend-request-cancel"),
     path("friends/<int:user_id>/remove/", views.remove_friend, name="friend-remove"),
+
+    # Friend matches
+    path("matches/", views.list_matches, name="matches-list"),
+    path("matches/challenge/", views.create_match, name="matches-create"),
+    path("matches/<int:match_id>/accept/", views.accept_match, name="matches-accept"),
+    path("matches/<int:match_id>/decline/", views.decline_match, name="matches-decline"),
+    path("matches/<int:match_id>/cancel/", views.cancel_match, name="matches-cancel"),
+    path("matches/<int:match_id>/submit/", views.submit_match_result, name="matches-submit"),
 ]

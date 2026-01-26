@@ -3,6 +3,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.db import models
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -17,6 +18,8 @@ from .models import (
 	Progress,
 	FriendRequest,
 	Friendship,
+	FriendMatch,
+	FriendMatchResult,
 )
 from .services import get_question_generator
 from .services.scoring import (
@@ -798,3 +801,279 @@ def remove_friend(request, user_id):
 		return _json_error("Friend not found.", status=404)
 
 	return JsonResponse({"ok": True})
+
+
+# ─────────────────────────────────────────────────────────────
+# Friend Match Endpoints
+# ─────────────────────────────────────────────────────────────
+
+def _serialize_match(match, user, results_by_match):
+	result_map = results_by_match.get(match.id, {})
+	my_result = result_map.get(user.id)
+	opponent_id = match.opponent_id if match.challenger_id == user.id else match.challenger_id
+	opponent_result = result_map.get(opponent_id)
+
+	def format_result(result):
+		if not result:
+			return None
+		return {
+			"correct_count": result.correct_count,
+			"total_questions": result.total_questions,
+			"score": result.score,
+			"submitted_at": result.submitted_at.isoformat() if result.submitted_at else None,
+		}
+
+	return {
+		"id": match.id,
+		"status": match.status,
+		"country": {
+			"code": match.country.iso2,
+			"name": match.country.name,
+		},
+		"challenger": {
+			"id": match.challenger_id,
+			"username": match.challenger.username,
+		},
+		"opponent": {
+			"id": match.opponent_id,
+			"username": match.opponent.username,
+		},
+		"is_challenger": match.challenger_id == user.id,
+		"created_at": match.created_at.isoformat(),
+		"accepted_at": match.accepted_at.isoformat() if match.accepted_at else None,
+		"completed_at": match.completed_at.isoformat() if match.completed_at else None,
+		"winner_id": match.winner_id,
+		"my_result": format_result(my_result),
+		"opponent_result": format_result(opponent_result),
+	}
+
+
+@require_GET
+def list_matches(request):
+	"""
+	GET /api/matches/
+	List friend matches for the authenticated user.
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	match_qs = FriendMatch.objects.filter(
+		models.Q(challenger=request.user) | models.Q(opponent=request.user)
+	).select_related(
+		"country",
+		"challenger",
+		"opponent",
+		"winner",
+	).order_by("-created_at")
+
+	results_qs = FriendMatchResult.objects.filter(match__in=match_qs).select_related("user")
+	results_by_match = {}
+	for result in results_qs:
+		results_by_match.setdefault(result.match_id, {})[result.user_id] = result
+
+	matches = [_serialize_match(match, request.user, results_by_match) for match in match_qs]
+	return JsonResponse({"ok": True, "matches": matches, "count": len(matches)})
+
+
+@csrf_exempt
+@require_POST
+def create_match(request):
+	"""
+	POST /api/matches/challenge/
+	Body: { "friend_id": 123, "country_code": "ES" }
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	payload = _parse_json(request)
+	if payload is None:
+		return _json_error("Invalid JSON payload.")
+
+	friend_id = payload.get("friend_id")
+	country_code = (payload.get("country_code") or "").strip().upper()
+
+	if not friend_id or not country_code:
+		return _json_error("Friend and country_code are required.")
+
+	if friend_id == request.user.id:
+		return _json_error("You cannot challenge yourself.")
+
+	friend = User.objects.filter(id=friend_id).first()
+	if not friend:
+		return _json_error("Friend not found.", status=404)
+
+	if not Friendship.objects.filter(user=request.user, friend=friend).exists():
+		return _json_error("You can only challenge friends.")
+
+	country = Country.objects.filter(iso2=country_code).first()
+	if not country:
+		return _json_error("Country not found.", status=404)
+
+	existing = FriendMatch.objects.filter(
+		models.Q(challenger=request.user, opponent=friend)
+		| models.Q(challenger=friend, opponent=request.user),
+		country=country,
+		status__in=[FriendMatch.Status.PENDING, FriendMatch.Status.ACCEPTED],
+	).first()
+	if existing:
+		return _json_error("A match for this country is already active.")
+
+	match = FriendMatch.objects.create(
+		challenger=request.user,
+		opponent=friend,
+		country=country,
+		status=FriendMatch.Status.PENDING,
+	)
+	return JsonResponse({"ok": True, "match": {"id": match.id}})
+
+
+@csrf_exempt
+@require_POST
+def accept_match(request, match_id):
+	"""
+	POST /api/matches/<id>/accept/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	match = FriendMatch.objects.filter(
+		id=match_id,
+		opponent=request.user,
+		status=FriendMatch.Status.PENDING,
+	).select_related("challenger", "country").first()
+	if not match:
+		return _json_error("Match not found.", status=404)
+
+	match.status = FriendMatch.Status.ACCEPTED
+	match.accepted_at = timezone.now()
+	match.save(update_fields=["status", "accepted_at", "updated_at"])
+	return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def decline_match(request, match_id):
+	"""
+	POST /api/matches/<id>/decline/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	match = FriendMatch.objects.filter(
+		id=match_id,
+		opponent=request.user,
+		status=FriendMatch.Status.PENDING,
+	).first()
+	if not match:
+		return _json_error("Match not found.", status=404)
+
+	match.status = FriendMatch.Status.DECLINED
+	match.save(update_fields=["status", "updated_at"])
+	return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def cancel_match(request, match_id):
+	"""
+	POST /api/matches/<id>/cancel/
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	match = FriendMatch.objects.filter(
+		id=match_id,
+		challenger=request.user,
+		status=FriendMatch.Status.PENDING,
+	).first()
+	if not match:
+		return _json_error("Match not found.", status=404)
+
+	match.status = FriendMatch.Status.CANCELED
+	match.save(update_fields=["status", "updated_at"])
+	return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def submit_match_result(request, match_id):
+	"""
+	POST /api/matches/<id>/submit/
+	Body: { "correct_count": 3, "total_questions": 5 }
+	"""
+	auth_error = _require_authenticated(request)
+	if auth_error:
+		return auth_error
+
+	payload = _parse_json(request)
+	if payload is None:
+		return _json_error("Invalid JSON payload.")
+
+	correct_count = payload.get("correct_count")
+	total_questions = payload.get("total_questions")
+
+	if correct_count is None or total_questions is None:
+		return _json_error("correct_count and total_questions are required.")
+
+	try:
+		correct_count = int(correct_count)
+		total_questions = int(total_questions)
+	except (TypeError, ValueError):
+		return _json_error("Scores must be integers.")
+
+	if total_questions <= 0 or correct_count < 0 or correct_count > total_questions:
+		return _json_error("Invalid score totals.")
+
+	match = FriendMatch.objects.filter(
+		id=match_id,
+		status=FriendMatch.Status.ACCEPTED,
+	).select_related("challenger", "opponent").first()
+	if not match:
+		return _json_error("Match not found or not active.", status=404)
+
+	if request.user.id not in {match.challenger_id, match.opponent_id}:
+		return _json_error("You are not part of this match.", status=403)
+
+	existing = FriendMatchResult.objects.filter(match=match, user=request.user).first()
+	if existing:
+		return _json_error("Match result already submitted.")
+
+	score = calculate_match_points(correct_count, total_questions)
+	result = FriendMatchResult.objects.create(
+		match=match,
+		user=request.user,
+		correct_count=correct_count,
+		total_questions=total_questions,
+		score=score,
+		submitted_at=timezone.now(),
+	)
+
+	stats, _ = UserStats.objects.get_or_create(user=request.user)
+	stats.match_points += score
+	stats.save(update_fields=["match_points"])
+
+	other_result = FriendMatchResult.objects.filter(match=match).exclude(user=request.user).first()
+	if other_result:
+		winner = None
+		if result.score > other_result.score:
+			winner = request.user
+		elif result.score < other_result.score:
+			winner = other_result.user
+		match.status = FriendMatch.Status.COMPLETED
+		match.completed_at = timezone.now()
+		match.winner = winner
+		match.save(update_fields=["status", "completed_at", "winner", "updated_at"])
+
+	return JsonResponse({
+		"ok": True,
+		"result": {
+			"score": result.score,
+			"correct_count": result.correct_count,
+			"total_questions": result.total_questions,
+		},
+	})
