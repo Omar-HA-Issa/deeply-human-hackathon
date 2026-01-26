@@ -12,12 +12,22 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build
 
-# Serve with lightweight static server
-FROM node:20-slim
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=build /app/dist ./dist
+# Serve with nginx
+FROM nginx:alpine
 
-ENV PORT=3000
-EXPOSE $PORT
-CMD sh -c "serve -s dist -l \$PORT"
+# Copy built files to nginx
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Create nginx config template for SPA routing
+RUN echo 'server { \
+    listen PORT_PLACEHOLDER; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf.template
+
+# Use shell to substitute PORT at runtime
+ENV PORT=80
+CMD sh -c "sed 's/PORT_PLACEHOLDER/'\"$PORT\"'/g' /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
