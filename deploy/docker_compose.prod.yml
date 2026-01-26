@@ -21,7 +21,7 @@ services:
       POSTGRES_PORT: 5432
     depends_on:
       - db
-    ports:
+    expose:
       - "8000"
 
   frontend:
@@ -35,8 +35,9 @@ services:
     depends_on:
       - backend
     networks:
+      - default
       - proxy
-    ports:
+    expose:
       - "80"
 
 volumes:
