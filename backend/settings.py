@@ -32,18 +32,15 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-gd+lnk^^5)4v*mny9)4yo
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-# Allowed hosts - include Railway domains
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
-DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() == 'true'
-
-_allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
-ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts_env.split(',') if host.strip()]
-
-if not ALLOWED_HOSTS:
+# Allowed hosts - include Railway domains and production domain
+_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
+if _allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+else:
     ALLOWED_HOSTS = [
         'localhost',
         '127.0.0.1',
+        '.railway.app',
         'worldquest.davidhoerz.com',
     ]
 
