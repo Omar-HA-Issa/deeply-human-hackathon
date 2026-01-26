@@ -11,18 +11,70 @@ from backend.apps.worldquest.models import Country, Category
 
 
 # Manual overrides for countries pycountry doesn't find
+# Includes variations from the dataset naming conventions
+# Also includes common countries to avoid fuzzy matching errors
 MANUAL_ISO_CODES = {
+    # Major countries (avoid fuzzy matching errors)
+    "France": "FR",
+    "UK": "GB",
+    "United Kingdom": "GB",
+    "Germany": "DE",
+    "Italy": "IT",
+    "Spain": "ES",
+    "Portugal": "PT",
+    "Netherlands": "NL",
+    "Belgium": "BE",
+    "Switzerland": "CH",
+    "Austria": "AT",
+    "Poland": "PL",
+    "Sweden": "SE",
+    "Norway": "NO",
+    "Denmark": "DK",
+    "Finland": "FI",
+    "Ireland": "IE",
+    "Greece": "GR",
+    "Turkey": "TR",
+    "Japan": "JP",
+    "China": "CN",
+    "India": "IN",
+    "Brazil": "BR",
+    "Mexico": "MX",
+    "Canada": "CA",
+    "Australia": "AU",
+    "New Zealand": "NZ",
+    "South Africa": "ZA",
+    "Nigeria": "NG",
+    "Kenya": "KE",
+    "Morocco": "MA",
+    "Argentina": "AR",
+    "Chile": "CL",
+    "Colombia": "CO",
+    "Peru": "PE",
+    "Thailand": "TH",
+    "Indonesia": "ID",
+    "Malaysia": "MY",
+    "Philippines": "PH",
+    "Singapore": "SG",
+    "Saudi Arabia": "SA",
+    "Israel": "IL",
+    "United Arab Emirates": "AE",
+
+    # Countries with naming variations
     "Russia": "RU",
     "South Korea": "KR",
     "North Korea": "KP",
+    "Korea, Rep.": "KR",
+    "Korea, Dem. Rep.": "KP",
     "Vietnam": "VN",
     "Laos": "LA",
+    "Lao": "LA",
     "Iran": "IR",
     "Syria": "SY",
     "Venezuela": "VE",
     "Bolivia": "BO",
     "Tanzania": "TZ",
     "Czech Republic": "CZ",
+    "Czechia": "CZ",
     "Moldova": "MD",
     "Kosovo": "XK",
     "Taiwan": "TW",
@@ -30,15 +82,24 @@ MANUAL_ISO_CODES = {
     "Hong Kong": "HK",
     "Palestine": "PS",
     "Ivory Coast": "CI",
+    "Cote d'Ivoire": "CI",
     "Democratic Republic of the Congo": "CD",
+    "Congo, Dem. Rep.": "CD",
     "Republic of the Congo": "CG",
+    "Congo, Rep.": "CG",
     "Brunei": "BN",
     "East Timor": "TL",
+    "Timor-Leste": "TL",
     "Cape Verde": "CV",
+    "Cabo Verde": "CV",
     "Micronesia": "FM",
+    "Micronesia, Fed. Sts.": "FM",
     "Saint Kitts and Nevis": "KN",
+    "St. Kitts and Nevis": "KN",
     "Saint Lucia": "LC",
+    "St. Lucia": "LC",
     "Saint Vincent and the Grenadines": "VC",
+    "St. Vincent and the Grenadines": "VC",
     "Sao Tome and Principe": "ST",
     "eSwatini": "SZ",
     "Swaziland": "SZ",
@@ -47,9 +108,39 @@ MANUAL_ISO_CODES = {
     "Turks and Caicos": "TC",
     "British Virgin Islands": "VG",
     "US Virgin Islands": "VI",
+    "Virgin Islands (U.S.)": "VI",
     "Curacao": "CW",
     "Sint Maarten": "SX",
     "South Sudan": "SS",
+    "Egypt": "EG",
+    "Egypt, Arab Rep.": "EG",
+    "Yemen": "YE",
+    "Yemen, Rep.": "YE",
+    "Gambia": "GM",
+    "Gambia, The": "GM",
+    "Bahamas": "BS",
+    "Bahamas, The": "BS",
+    "Kyrgyzstan": "KG",
+    "Kyrgyz Republic": "KG",
+    "Slovakia": "SK",
+    "Slovak Republic": "SK",
+    "United States": "US",
+    "USA": "US",
+}
+
+# Entries to skip - territories/regions that would conflict with real countries
+SKIP_ENTRIES = {
+    "Clipperton",  # Would overwrite France (FR)
+    "French Southern and Antarctic Lands",  # No ISO code
+    "St. Martin (French part)",  # Would conflict
+    "Channel Islands",  # Would conflict with UK
+    "World",  # Not a country
+    "Africa",  # Continent
+    "Asia",  # Continent
+    "Europe",  # Continent
+    "North America",  # Continent
+    "South America",  # Continent
+    "Oceania",  # Continent
 }
 
 
@@ -122,6 +213,10 @@ class Command(BaseCommand):
         for country_name in data.keys():
             # Skip entries that are clearly not countries
             if not country_name or len(country_name) < 2:
+                continue
+
+            # Skip entries that would conflict with real countries
+            if country_name in SKIP_ENTRIES:
                 continue
 
             iso2 = get_iso_code(country_name)
