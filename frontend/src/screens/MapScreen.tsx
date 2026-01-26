@@ -10,6 +10,7 @@ import {
   getCountryByNumericCode,
 } from "../data/countries";
 import { SocialScreen } from "./SocialScreen";
+import { LeaderboardScreen } from "./LeaderboardScreen";
 import "./MapScreen.css";
 
 const startCodes = ["US", "ES", "IN", "CD", "AU"];
@@ -37,7 +38,9 @@ type MapScreenProps = {
 export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: MapScreenProps) {
   const globeRef = useRef<GlobeMethods | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"roadmap" | "social">("roadmap");
+  const [activeTab, setActiveTab] = useState<
+    "roadmap" | "social" | "leaderboard"
+  >("roadmap");
   const [countryBorders, setCountryBorders] = useState<Array<unknown>>([]);
   const [availableCodes, setAvailableCodes] = useState<string[] | null>(null);
   const [showStats, setShowStats] = useState(false);
@@ -184,6 +187,12 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
         >
           Social
         </button>
+        <button
+          className={`tab ${activeTab === "leaderboard" ? "active" : ""}`}
+          onClick={() => setActiveTab("leaderboard")}
+        >
+          Leaderboard
+        </button>
       </nav>
 
       {activeTab === "roadmap" ? (
@@ -282,8 +291,10 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
             )}
           </section>
         </main>
-      ) : (
+      ) : activeTab === "social" ? (
         <SocialScreen user={user} onSignIn={onSignIn} />
+      ) : (
+        <LeaderboardScreen user={user} />
       )}
     </div>
   );
