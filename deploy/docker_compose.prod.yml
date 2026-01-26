@@ -21,6 +21,7 @@ services:
       POSTGRES_PORT: 5432
       DJANGO_ALLOWED_HOSTS: worldquest.davidhoerz.com
       DJANGO_DEBUG: "false"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       - db
     expose:
