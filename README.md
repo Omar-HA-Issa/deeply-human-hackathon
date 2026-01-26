@@ -1,4 +1,5 @@
-# WorldQuest 🌍✨
+# WorldQuest 🌍✨<img width="1241" height="732" alt="worldquestfrontend" src="https://github.com/user-attachments/assets/792de25a-0179-42e7-bfd7-d465d5525b6b" />
+
 
 **WorldQuest** is a globe-spanning quiz adventure where learning geography becomes a game of exploration, mastery, and social play. This project was built for **Deeply Human**—a community and mission we love—because we believe playful learning is a powerful path to curiosity, empathy, and *greater consciousness*. WorldQuest turns facts into felt understanding: every country you unlock is a little more awareness of our shared planet.
 
@@ -6,7 +7,8 @@
 
 ---
 
-## Why this exists (Deeply Human)
+## Why this exists (Deeply Human)![Uploading worldquestfrontend.png…]()
+
 We built WorldQuest for **Deeply Human** to help people grow consciousness through play, curiosity, and connection. The experience is intentionally designed to encourage:
 - **Presence**: slow down and learn, one country at a time.
 - **Perspective**: understand place, people, and context beyond your own.
