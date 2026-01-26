@@ -1,4 +1,5 @@
-export const apiBaseUrl = "http://localhost:8000";
+const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+export const apiBaseUrl = envBaseUrl ?? "http://localhost:8000";
 
 type ApiResponse<T> = {
 	ok: boolean;

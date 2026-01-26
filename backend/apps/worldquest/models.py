@@ -256,3 +256,60 @@ class Friendship(models.Model):
 
     def __str__(self):
         return f"{self.user_id} -> {self.friend_id}"
+
+
+class FriendMatch(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        CANCELED = "canceled", "Canceled"
+        COMPLETED = "completed", "Completed"
+
+    challenger = models.ForeignKey(User, on_delete=models.CASCADE, related_name="matches_sent")
+    opponent = models.ForeignKey(User, on_delete=models.CASCADE, related_name="matches_received")
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name="friend_matches")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    winner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="matches_won",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=~Q(challenger=models.F("opponent")), name="no_self_match"),
+        ]
+        indexes = [
+            models.Index(fields=["challenger", "status"]),
+            models.Index(fields=["opponent", "status"]),
+            models.Index(fields=["country", "status"]),
+        ]
+
+    def __str__(self):
+        return f"Match({self.challenger_id} vs {self.opponent_id} - {self.country.iso2})"
+
+
+class FriendMatchResult(TimeStampedModel):
+    match = models.ForeignKey(FriendMatch, on_delete=models.CASCADE, related_name="results")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="match_results")
+    correct_count = models.PositiveSmallIntegerField(default=0)
+    total_questions = models.PositiveSmallIntegerField(default=0)
+    score = models.PositiveIntegerField(default=0)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["match", "user"], name="uniq_match_result_user"),
+        ]
+        indexes = [
+            models.Index(fields=["match", "user"]),
+        ]
+
+    def __str__(self):
+        return f"MatchResult({self.match_id}-{self.user_id})"

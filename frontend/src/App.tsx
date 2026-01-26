@@ -84,7 +84,8 @@ export function App() {
     const params = new URLSearchParams(queryString);
     const name = params.get("name") ?? "";
     const code = params.get("code") ?? "";
-    return { name, code };
+    const matchId = params.get("match");
+    return { name, code, matchId: matchId ? Number(matchId) : null };
   }, [view]);
 
   const handleLogout = async () => {
@@ -107,6 +108,7 @@ export function App() {
       <QuizScreen
         countryName={quizParams.name}
         countryCode={quizParams.code}
+        matchId={quizParams.matchId ?? undefined}
         onComplete={(passed) => {
           if (user) {
             refreshProgress(user);

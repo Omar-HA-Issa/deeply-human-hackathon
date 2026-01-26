@@ -106,15 +106,15 @@ Data:
 
 Generate {num_questions} trivia questions following this EXACT structure:
 
-1. "did_you_know" - A fascinating, DETAILED hook fact (2-3 sentences) that DIRECTLY relates to the question. This should make the user curious and set up the question. Include context, comparisons to other countries, or historical background.
+1. "did_you_know" - A fascinating, DETAILED hook fact (2-3 sentences) that ADDS VALUE beyond the question. This should provide CONTEXT, HISTORY, GLOBAL COMPARISONS, or CAUSE-AND-EFFECT that the user wouldn't learn just from answering the question.
 
-2. "prompt" - Simple, direct question (NOT analytical like "What can be inferred...")
+2. "prompt" - Simple, direct question that includes the data year (e.g., "As of 2022, what is..." or "What was X in 2021?"). NOT analytical like "What can be inferred..."
 
 3. "choices" - Exactly 4 options
 
 4. "correct_index" - Index of correct answer (0-3)
 
-5. "surprising_fact" - Shown when user gets it WRONG. Start with "Surprising, right?" then explain (2-3 sentences) WHY the correct answer is counterintuitive or interesting. Compare to what people might expect, explain the underlying reasons, or connect it to broader patterns.
+5. "surprising_fact" - Shown when user gets it WRONG. Start with "Surprising, right?" then explain (2-3 sentences) WHY the correct answer is counterintuitive. Include global comparisons (e.g., "the global average is X"), historical trends, regional context, or explain the underlying causes.
 
 6. "insight" - A 5-8 word takeaway lesson
 
@@ -126,26 +126,33 @@ EXAMPLE:
 {{
   "questions": [
     {{
-      "did_you_know": "While most countries chase economic growth, one small Himalayan kingdom decided money isn't everything. In 1972, Bhutan's young king made a radical choice that would influence global discussions about what truly makes a nation successful.",
-      "prompt": "What does Bhutan measure instead of GDP?",
-      "choices": ["Military strength", "Gross National Happiness", "Population growth", "Land ownership"],
-      "correct_index": 1,
-      "surprising_fact": "Surprising, right? While you might think economic output is the universal measure of success, Bhutan tracks citizens' psychological wellbeing, health, time use, and cultural resilience. This tiny nation of 750,000 people has inspired the UN to adopt a 'happiness resolution' and dozens of countries to create their own wellbeing indices.",
-      "insight": "Countries can choose different definitions of success",
-      "explanation": "Bhutan pioneered Gross National Happiness as an alternative to GDP.",
+      "did_you_know": "Despite its reputation as a tech powerhouse, Germany has struggled with rural internet infrastructure. While cities enjoy fast connections, many countryside areas still rely on outdated copper lines from the 1990s.",
+      "prompt": "As of 2023, what percentage of Germans use the internet?",
+      "choices": ["72%", "78%", "85%", "91%"],
+      "correct_index": 2,
+      "surprising_fact": "Surprising, right? At 85%, Germany lags behind Nordic neighbors like Denmark (93%) and the Netherlands (91%). The government's 2018 broadband initiative aims to close this digital divide, but progress has been slower than expected.",
+      "insight": "Economic strength doesn't guarantee digital infrastructure",
+      "explanation": "As of 2023, 85% of Germans use the internet.",
       "difficulty": 1,
       "category": "social"
     }}
   ]
 }}
 
-CRITICAL RULES FOR "did_you_know" AND "surprising_fact":
-- Both MUST directly relate to the specific question being asked
-- "did_you_know" should BUILD CURIOSITY before the question (shown to everyone)
-- "surprising_fact" should EXPLAIN why the answer defies expectations (shown when wrong)
-- Include specific details: numbers, comparisons, historical context, or cause-and-effect
-- Make them genuinely interesting - imagine telling a friend something that makes them say "Wait, really?!"
-- Avoid generic statements like "This country has interesting statistics"
+CRITICAL RULES FOR "did_you_know" - MUST ADD NEW INFORMATION:
+- NEVER just restate or paraphrase the question or answer
+- MUST teach something the user wouldn't learn from just answering the question
+- Include at least ONE of: historical context, global comparison, cause-and-effect, or surprising connection
+- BAD EXAMPLE: "Japan has an interesting life expectancy. The country is known for having long-living citizens." (This adds nothing!)
+- GOOD EXAMPLE: "Japan's secret to longevity includes a diet rich in fish and vegetables, strong social bonds, and universal healthcare. The island of Okinawa has more centenarians per capita than anywhere else on Earth." (Teaches WHY!)
+
+CRITICAL RULES FOR "surprising_fact" - MUST EXPLAIN WHY:
+- NEVER just repeat the correct answer
+- MUST explain WHY this answer might surprise people
+- Include global/regional comparisons (e.g., "For comparison, the global average is X" or "This is higher than neighboring countries")
+- Explain underlying causes, historical reasons, or contributing factors
+- BAD EXAMPLE: "Surprising, right? Germany has a 78% internet usage rate." (Just restates the answer!)
+- GOOD EXAMPLE: "Surprising, right? Despite being Europe's largest economy, Germany's internet infrastructure in rural areas has lagged behind neighbors like Denmark (93%) and the Netherlands (91%). Government initiatives since 2018 are working to close this digital divide." (Explains context and reasons!)
 
 CRITICAL: BE HONEST AND OBJECTIVE - DO NOT SPIN BAD STATISTICS POSITIVELY:
 - If a statistic is poor (e.g., 67% literacy = 1 in 3 adults can't read), acknowledge it's a challenge, not an achievement
@@ -173,13 +180,32 @@ CRITICAL RULES FOR ANSWER CHOICES:
 - The correct answer must be the ACTUAL value from the data
 - Distractor answers should be plausible but WRONG values (not the real data)
 
-DIMENSIONAL COVERAGE - Generate questions across these categories:
-1. ECONOMIC: GDP, trade, employment, inequality, inflation, billionaires, poverty
-2. SOCIAL: Education, literacy, marriage age, internet access, healthcare, population
-3. PHYSICAL: Life expectancy, BMI, infant mortality, alcohol, smoking, food supply
-4. ENVIRONMENTAL: Forest coverage, CO2 emissions, water resources, agricultural land
+CRITICAL: USE CORRECT UNITS:
+- Life expectancy is in YEARS (e.g., "78 years"), NOT percent
+- GDP per capita is in dollars (e.g., "$5,000"), NOT percent
+- Population density is per square km (e.g., "50 per km²")
+- Only use % for actual percentages (employment rate, literacy rate, etc.)
 
-You MUST include at least one question from each category.
+CRITICAL: DO NOT REVEAL ANSWERS IN CHOICES:
+- NEVER include values in comparison question choices
+- WRONG: "Which is higher?" with choices ["Female Life Expectancy (78 years)", "Male Life Expectancy (75 years)"] - answer is obvious!
+- RIGHT: "What is the female life expectancy?" with choices ["72 years", "78 years", "81 years", "69 years"]
+- For comparison questions, ask about ONE specific value, not which is higher/lower
+- AVOID comparison questions entirely - ask direct "What is X?" questions instead
+
+DIMENSIONAL COVERAGE - You are generating exactly 5 questions. Each MUST be from a DIFFERENT category:
+
+Question 1 - ECONOMY (pick ONE): GDP per capita, unemployment rate, inequality/Gini index, exports, imports, inflation, poverty rate, billionaires count
+Question 2 - DEMOGRAPHICS (pick ONE): Median age, population density, urban population %, population growth, marriage age
+Question 3 - HEALTH (pick ONE): Life expectancy, infant mortality, doctors per capita, alcohol consumption, smoking rate, BMI
+Question 4 - ENVIRONMENT (pick ONE): Forest coverage %, CO2 emissions, agricultural land %, renewable water resources
+Question 5 - TECHNOLOGY/LIFESTYLE (pick ONE): Internet users %, cell phones per capita, vehicles per capita, working hours, electricity use
+
+STRICT RULES FOR DIVERSITY:
+- Pick ONLY ONE metric from each category above
+- NEVER ask two questions about similar topics (e.g., don't ask about both male AND female life expectancy)
+- Each question should teach something completely different about the country
+- Aim for surprising or counterintuitive facts that challenge assumptions
 
 Respond with ONLY valid JSON, no markdown."""
 
@@ -210,6 +236,9 @@ class AIQuestionGenerator:
 
     def _extract_metrics(self, country_data: dict) -> dict:
         """Extract interesting metrics from country data for the AI prompt."""
+        import datetime
+        current_year = datetime.datetime.now().year
+
         metrics = {}
 
         for category_name, category_data in country_data.items():
@@ -220,11 +249,22 @@ class AIQuestionGenerator:
                 if metric_key in category_data:
                     metric = category_data[metric_key]
                     if isinstance(metric, dict) and "value" in metric:
+                        year = metric.get("year")
+
+                        # Skip future projections (year > current year) - too confusing
+                        if year and year > current_year:
+                            continue
+
+                        # Skip very old data (older than 15 years)
+                        if year and year < current_year - 15:
+                            continue
+
                         # Clean up the metric name for display
                         display_name = metric_key.replace("_", " ").title()
+
                         metrics[display_name] = {
                             "value": metric["value"],
-                            "year": metric.get("year"),
+                            "year": year,
                         }
 
         return metrics
@@ -241,6 +281,51 @@ class AIQuestionGenerator:
         if question["correct_index"] < 0 or question["correct_index"] > 3:
             return False
         return True
+
+    def _normalize_choice_precision(self, question: dict) -> dict:
+        """Normalize all numeric choices to the same precision so answers aren't obvious."""
+        import re
+
+        choices = question.get("choices", [])
+        if not choices:
+            return question
+
+        # Extract numeric values and their units from choices
+        parsed = []
+        for choice in choices:
+            match = re.match(r'^([$€£]?)(\d+\.?\d*)\s*(.*)$', str(choice).strip())
+            if match:
+                prefix, num_str, suffix = match.groups()
+                try:
+                    num = float(num_str)
+                    parsed.append((prefix, num, suffix, True))
+                except ValueError:
+                    parsed.append((None, None, None, False))
+            else:
+                parsed.append((None, None, None, False))
+
+        # Check if all choices are numeric
+        if not all(p[3] for p in parsed):
+            return question  # Mixed format, can't normalize
+
+        # Determine if any choice has decimals
+        has_decimals = any('.' in str(p[1]) and p[1] != int(p[1]) for p in parsed if p[1] is not None)
+
+        # Normalize all to same format (round to whole numbers for cleaner look)
+        new_choices = []
+        for prefix, num, suffix, valid in parsed:
+            if valid:
+                # Round to whole number for cleaner appearance
+                rounded = int(round(num))
+                new_choice = f"{prefix}{rounded}"
+                if suffix:
+                    new_choice += f" {suffix}" if not suffix.startswith('%') else suffix
+                new_choices.append(new_choice.strip())
+            else:
+                new_choices.append(choices[parsed.index((prefix, num, suffix, valid))])
+
+        question["choices"] = new_choices
+        return question
 
     def _extract_number_from_text(self, text: str) -> float | None:
         """Extract a numeric value from text like '46%', '12.5 years', '$5,000', etc."""
@@ -352,15 +437,7 @@ class AIQuestionGenerator:
             num = self._extract_number_from_text(choice)
             choice_values.append(num)
 
-        # Check if the current correct answer is close to actual value
-        current_correct_value = choice_values[correct_index]
-        if current_correct_value is not None:
-            tolerance = max(actual_value * 0.15, 2)  # 15% tolerance or at least 2
-            if abs(current_correct_value - actual_value) <= tolerance:
-                # Current answer is correct, no fix needed
-                return question
-
-        # Current answer is wrong - try to find the right choice
+        # Find the best matching choice
         best_match_index = None
         best_match_diff = float('inf')
 
@@ -371,26 +448,50 @@ class AIQuestionGenerator:
                     best_match_diff = diff
                     best_match_index = i
 
-        # Check if we found a good match
-        if best_match_index is not None:
-            tolerance = max(actual_value * 0.15, 2)
-            if best_match_diff <= tolerance:
-                logger.warning(
-                    f"Auto-fixed correct_index: {correct_index} -> {best_match_index} "
-                    f"for metric '{metric_name}' (actual: {actual_value}, "
-                    f"was pointing to: {choice_values[correct_index]}, "
-                    f"now pointing to: {choice_values[best_match_index]})"
-                )
-                question["correct_index"] = best_match_index
-                return question
+        # Check if we found a good match within tolerance
+        tolerance = max(actual_value * 0.15, 2)  # 15% tolerance or at least 2
+        if best_match_index is None or best_match_diff > tolerance:
+            # No choice matches the actual data - reject this question
+            logger.error(
+                f"Rejecting question - no choice matches actual data. "
+                f"Metric: {metric_name}, Actual value: {actual_value}, "
+                f"Choices: {choices}, Choice values: {choice_values}"
+            )
+            return None
 
-        # No choice matches the actual data - reject this question
-        logger.error(
-            f"Rejecting question - no choice matches actual data. "
-            f"Metric: {metric_name}, Actual value: {actual_value}, "
-            f"Choices: {choices}, Choice values: {choice_values}"
-        )
-        return None
+        # Fix correct_index if needed
+        if best_match_index != correct_index:
+            logger.warning(
+                f"Auto-fixed correct_index: {correct_index} -> {best_match_index} "
+                f"for metric '{metric_name}' (actual: {actual_value})"
+            )
+            question["correct_index"] = best_match_index
+
+        # Get the correct choice value to fix text fields
+        correct_choice_value = choice_values[best_match_index]
+        if correct_choice_value is not None:
+            # Fix numbers in surprising_fact and explanation to match the correct choice
+            import re
+            for field in ["surprising_fact", "explanation", "did_you_know"]:
+                if field in question and question[field]:
+                    text = question[field]
+                    # Find percentages or numbers that are close to actual_value but wrong
+                    # and replace them with the correct choice value
+                    def replace_wrong_number(match):
+                        num = float(match.group(1))
+                        # If this number is close to actual_value (within 20%), replace it
+                        if abs(num - actual_value) < actual_value * 0.2:
+                            # Format to match the original (with or without decimal)
+                            if '.' in match.group(1):
+                                return f"{correct_choice_value:.1f}"
+                            else:
+                                return f"{int(round(correct_choice_value))}"
+                        return match.group(0)
+
+                    # Match numbers followed by % or standalone decimals
+                    question[field] = re.sub(r'(\d+\.?\d*)(?=%)', replace_wrong_number, text)
+
+        return question
 
     def generate_questions(self, country_name: str, country_data: dict, count: int = 5) -> list:
         """
@@ -416,17 +517,20 @@ class AIQuestionGenerator:
         )
 
         try:
+            # Calculate tokens needed: ~500 tokens per question for detailed facts
+            max_tokens = max(3000, count * 500)
+
             response = self.client.chat.completions.create(
                 model=self.MODEL,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a trivia question generator. Generate engaging quiz questions based on real data. Always respond with valid JSON only, no markdown.",
+                        "content": "You are a trivia question generator. Generate engaging quiz questions with DETAILED educational facts. Every question MUST include a meaningful 'did_you_know' (2-3 sentences with context/history/comparisons) and 'surprising_fact' (2-3 sentences explaining WHY the answer is surprising). Never skip these fields. Always respond with valid JSON only.",
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.8,
-                max_tokens=2000,  # More tokens for 5 questions
+                temperature=0.7,
+                max_tokens=max_tokens,
             )
 
             # Parse the response
@@ -450,6 +554,9 @@ class AIQuestionGenerator:
                 if not self._validate_question(q):
                     logger.warning(f"Invalid question structure skipped: {q}")
                     continue
+
+                # Normalize choice precision so answers aren't obvious
+                q = self._normalize_choice_precision(q)
 
                 # Validate and auto-fix the correct answer against actual data
                 fixed_q = self._validate_and_fix_answer(q, metrics)
