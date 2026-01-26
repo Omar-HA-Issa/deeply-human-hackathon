@@ -288,13 +288,18 @@ class TemplateQuestionGenerator:
 
         return choices, correct_index
 
-    def generate_value_question(self, country_name: str, country_data: dict) -> Optional[GeneratedQuestion]:
+    def generate_value_question(self, country_name: str, country_data: dict, exclude_metrics: set = None) -> Optional[GeneratedQuestion]:
         """
         Generate a "What is X in Country?" question.
         """
+        if exclude_metrics is None:
+            exclude_metrics = set()
+
         # Try to find a metric with data
         available_metrics = []
         for metric_key, metric_info in TEMPLATE_METRICS.items():
+            if metric_key in exclude_metrics:
+                continue
             result = self._find_metric_value(country_data, metric_key)
             if result is not None:
                 available_metrics.append((metric_key, metric_info, result))
@@ -304,6 +309,7 @@ class TemplateQuestionGenerator:
 
         # Pick a random metric
         metric_key, metric_info, (value, year) = random.choice(available_metrics)
+        exclude_metrics.add(metric_key)  # Mark as used
         display_name = metric_info["display_name"]
 
         # Generate question
@@ -337,87 +343,21 @@ class TemplateQuestionGenerator:
             source="dataset",
         )
 
-    def generate_comparison_question(self, country_name: str, country_data: dict) -> Optional[GeneratedQuestion]:
-        """
-        Generate a "Which is higher in Country: X or Y?" question.
-        """
-        # Find two comparable metrics
-        comparable_pairs = [
-            ("life_expectancy_female", "life_expectancy_male"),
-            ("literacy_rate_adult", "internet_users"),
-        ]
-
-        for metric1_key, metric2_key in comparable_pairs:
-            result1 = self._find_metric_value(country_data, metric1_key)
-            result2 = self._find_metric_value(country_data, metric2_key)
-
-            if result1 is not None and result2 is not None:
-                value1, year1 = result1
-                value2, year2 = result2
-
-                metric1_info = TEMPLATE_METRICS[metric1_key]
-                metric2_info = TEMPLATE_METRICS[metric2_key]
-
-                # Only compare if they have the same unit type (both percentages)
-                if metric1_info.get("unit") == metric2_info.get("unit"):
-                    name1 = metric1_info["display_name"]
-                    name2 = metric2_info["display_name"]
-
-                    prompt = f"In {country_name}, which metric has a higher value?"
-
-                    if value1 > value2:
-                        choices = [
-                            f"{name1.title()} ({value1:.1f}%)",
-                            f"{name2.title()} ({value2:.1f}%)",
-                            "They are equal",
-                            "Data not available",
-                        ]
-                        correct_index = 0
-                        explanation = f"In {country_name}, {name1} ({value1:.1f}%) is higher than {name2} ({value2:.1f}%)."
-                    else:
-                        choices = [
-                            f"{name1.title()} ({value1:.1f}%)",
-                            f"{name2.title()} ({value2:.1f}%)",
-                            "They are equal",
-                            "Data not available",
-                        ]
-                        correct_index = 1
-                        explanation = f"In {country_name}, {name2} ({value2:.1f}%) is higher than {name1} ({value1:.1f}%)."
-
-                    random.shuffle(choices[:2])  # Shuffle just the first two
-                    correct_choice = choices[correct_index]
-                    correct_index = choices.index(correct_choice)
-
-                    return GeneratedQuestion(
-                        prompt=prompt,
-                        choices=choices,
-                        correct_index=correct_index,
-                        difficulty=2,  # Comparison questions are medium
-                        category_name="mental",
-                        explanation=explanation,
-                        source="dataset",
-                    )
-
-        return None
-
-    def generate_questions(self, country_name: str, count: int = 3) -> list[GeneratedQuestion]:
+    def generate_questions(self, country_name: str, count: int = 5) -> list[GeneratedQuestion]:
         """
         Generate template-based questions for a country.
-        Returns up to `count` questions.
+        Returns up to `count` questions with different metrics.
         """
         country_data = self.get_country_data(country_name)
         if not country_data:
             return []
 
         questions = []
-        generators = [
-            self.generate_value_question,
-            self.generate_value_question,  # Can generate multiple value questions
-            self.generate_comparison_question,
-        ]
+        used_metrics = set()
 
-        for generator in generators[:count]:
-            question = generator(country_name, country_data)
+        # Generate up to count unique value questions
+        for _ in range(count):
+            question = self.generate_value_question(country_name, country_data, exclude_metrics=used_metrics)
             if question:
                 questions.append(question)
 
