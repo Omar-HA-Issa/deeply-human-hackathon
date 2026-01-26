@@ -224,35 +224,9 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
   return (
     <div className="social-screen">
       <section className="card social-hero">
-<<<<<<< HEAD
         <div>
           <h2>Social</h2>
           <p>Stay connected with your crew across every quiz.</p>
-=======
-        <div className="social-hero-actions">
-          <div className="hero-action-row">
-            <button className="button primary" onClick={handleInvite}>
-              Invite friends
-            </button>
-            {inviteStatus ? <span className="invite-status">{inviteStatus}</span> : null}
-          </div>
-          <div className="hero-action-row">
-            <input
-              className="add-friend-input compact"
-              placeholder="Add by username"
-              value={requestName}
-              onChange={(event) => setRequestName(event.target.value)}
-            />
-            <button
-              className="button ghost"
-              onClick={handleSendRequest}
-              disabled={isSendingRequest}
-            >
-              {isSendingRequest ? "Sending..." : "Add friend"}
-            </button>
-          </div>
-          {requestStatus ? <div className="add-friend-status">{requestStatus}</div> : null}
->>>>>>> 8fa6ae5b811327c6f890f4b2ecc9fa60b4feaf3d
         </div>
       </section>
 
@@ -262,7 +236,6 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             <h3>Friends</h3>
             <span className="pill">{friends.length} total</span>
           </header>
-<<<<<<< HEAD
           <div className="friends-actions">
             <button className="button primary small invite-button" onClick={handleInvite}>
               Invite friends
@@ -290,11 +263,6 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
               ) : null}
             </div>
           </div>
-=======
-          {matchStatus ? (
-            <div className="match-status-banner">{matchStatus}</div>
-          ) : null}
->>>>>>> 8fa6ae5b811327c6f890f4b2ecc9fa60b4feaf3d
           {isLoading ? (
             <div className="empty-state">Loading friends…</div>
           ) : loadError ? (
