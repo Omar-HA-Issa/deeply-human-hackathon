@@ -197,15 +197,6 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
 
       {activeTab === "roadmap" ? (
         <main className="roadmap-layout">
-          <section className="card globe-card">
-            <div className="globe-header">
-              <div>
-                <h2>Roadmap</h2>
-                <p>Connected countries unlock next steps.</p>
-              </div>
-              <div className="chip">Live pins</div>
-            </div>
-
             <div className="globe-wrapper">
               <Globe
                 ref={globeRef}
@@ -289,7 +280,7 @@ export function MapScreen({ user, completedCodes, stats, onSignIn, onSignOut }: 
                 </div>
               </div>
             )}
-          </section>
+
         </main>
       ) : activeTab === "social" ? (
         <SocialScreen user={user} onSignIn={onSignIn} />
