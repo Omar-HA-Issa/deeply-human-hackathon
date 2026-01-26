@@ -483,6 +483,12 @@
   font-weight: 500;
 }
 
+.quiz-success {
+  color: #16a34a;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 /* ===== Insight Card ===== */
 .quiz-insight {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);

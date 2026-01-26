@@ -10,6 +10,14 @@ import {
   removeFriend,
   sendFriendRequest,
 } from "../api/social";
+import {
+  acceptMatch,
+  cancelMatch,
+  createMatch,
+  declineMatch,
+  fetchMatches,
+  FriendMatch,
+} from "../api/matches";
 import "./SocialScreen.css";
 
 type SocialUser = {
@@ -25,11 +33,14 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [matches, setMatches] = useState<FriendMatch[]>([]);
   const [cheeredIds, setCheeredIds] = useState<Set<number>>(new Set());
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
+  const [matchStatus, setMatchStatus] = useState<string | null>(null);
   const [requestName, setRequestName] = useState("");
   const [isSendingRequest, setIsSendingRequest] = useState(false);
+  const [isSendingMatch, setIsSendingMatch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -37,10 +48,14 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
     try {
       setIsLoading(true);
       setLoadError(null);
-      const snapshot = await fetchSocialSnapshot();
+      const [snapshot, matchList] = await Promise.all([
+        fetchSocialSnapshot(),
+        fetchMatches(),
+      ]);
       setFriends(snapshot.friends);
       setRequests(snapshot.requests);
       setLeaderboard(snapshot.leaderboard);
+      setMatches(matchList);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Failed to load");
     } finally {
@@ -118,6 +133,51 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
     await loadSnapshot();
   };
 
+  const handleChallengeFriend = async (friendId: number, friendName: string) => {
+    const countryCode = window
+      .prompt(`Challenge ${friendName} with a country code (e.g., ES):`)
+      ?.trim()
+      .toUpperCase();
+    if (!countryCode) {
+      return;
+    }
+    try {
+      setIsSendingMatch(true);
+      await createMatch(friendId, countryCode);
+      setMatchStatus(`Challenge sent to ${friendName}!`);
+      await loadSnapshot();
+    } catch (error) {
+      setMatchStatus(error instanceof Error ? error.message : "Challenge failed");
+    } finally {
+      setIsSendingMatch(false);
+      window.setTimeout(() => setMatchStatus(null), 2400);
+    }
+  };
+
+  const handleAcceptMatch = async (matchId: number) => {
+    await acceptMatch(matchId);
+    await loadSnapshot();
+  };
+
+  const handleDeclineMatch = async (matchId: number) => {
+    await declineMatch(matchId);
+    await loadSnapshot();
+  };
+
+  const handleCancelMatch = async (matchId: number) => {
+    await cancelMatch(matchId);
+    await loadSnapshot();
+  };
+
+  const handlePlayMatch = (match: FriendMatch) => {
+    const query = new URLSearchParams({
+      code: match.country.code,
+      name: match.country.name,
+      match: String(match.id),
+    });
+    window.location.hash = `quiz?${query.toString()}`;
+  };
+
   const handleInvite = async () => {
     const inviteLink = `${window.location.origin}/#auth?mode=register&invite=${encodeURIComponent(
       user?.username ?? "explorer"
@@ -189,6 +249,9 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             <h3>Friends</h3>
             <span className="pill">{friends.length} total</span>
           </header>
+          {matchStatus ? (
+            <div className="match-status-banner">{matchStatus}</div>
+          ) : null}
           {isLoading ? (
             <div className="empty-state">Loading friends…</div>
           ) : loadError ? (
@@ -225,6 +288,13 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                   </button>
                   <button
                     className="button ghost"
+                    onClick={() => handleChallengeFriend(friend.id, friend.username)}
+                    disabled={isSendingMatch}
+                  >
+                    Challenge
+                  </button>
+                  <button
+                    className="button ghost"
                     onClick={() => handleRemoveFriend(friend.id)}
                   >
                     Remove
@@ -232,6 +302,111 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
                 </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        <section className="card social-panel match-panel">
+          <header className="panel-header">
+            <h3>Friend matches</h3>
+            <span className="pill muted">{matches.length} total</span>
+          </header>
+          {isLoading ? (
+            <div className="empty-state">Loading matches…</div>
+          ) : loadError ? (
+            <div className="empty-state">{loadError}</div>
+          ) : matches.length ? (
+            <div className="match-list">
+              {matches.map((match) => {
+                const opponent = match.isChallenger
+                  ? match.opponent.username
+                  : match.challenger.username;
+                const awaitingResponse =
+                  match.status === "pending" && match.isChallenger;
+                const needsResponse =
+                  match.status === "pending" && !match.isChallenger;
+                const awaitingFriend =
+                  match.status === "accepted" && match.myResult && !match.opponentResult;
+                const needsPlay = match.status === "accepted" && !match.myResult;
+                const winnerText =
+                  match.status === "completed"
+                    ? match.winnerId
+                      ? match.winnerId === match.challenger.id
+                        ? `${match.challenger.username} wins`
+                        : `${match.opponent.username} wins`
+                      : "Tie game"
+                    : null;
+
+                return (
+                  <div className="match-row" key={match.id}>
+                    <div className="match-main">
+                      <div className="match-title">
+                        {match.country.name} ({match.country.code})
+                      </div>
+                      <div className="match-meta">
+                        vs {opponent} · {match.status}
+                      </div>
+                      {winnerText ? (
+                        <div className="match-winner">{winnerText}</div>
+                      ) : null}
+                      {match.myResult ? (
+                        <div className="match-score">
+                          You: {match.myResult.correctCount}/
+                          {match.myResult.totalQuestions} ({match.myResult.score} pts)
+                        </div>
+                      ) : null}
+                      {match.opponentResult ? (
+                        <div className="match-score muted">
+                          Friend: {match.opponentResult.correctCount}/
+                          {match.opponentResult.totalQuestions} (
+                          {match.opponentResult.score} pts)
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="match-actions">
+                      {needsResponse ? (
+                        <>
+                          <button
+                            className="button primary small"
+                            onClick={() => handleAcceptMatch(match.id)}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="button ghost small"
+                            onClick={() => handleDeclineMatch(match.id)}
+                          >
+                            Decline
+                          </button>
+                        </>
+                      ) : null}
+                      {awaitingResponse ? (
+                        <button
+                          className="button ghost small"
+                          onClick={() => handleCancelMatch(match.id)}
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                      {needsPlay ? (
+                        <button
+                          className="button primary small"
+                          onClick={() => handlePlayMatch(match)}
+                        >
+                          Play match
+                        </button>
+                      ) : null}
+                      {awaitingFriend ? (
+                        <span className="match-wait">Waiting on friend…</span>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-state">
+              Challenge a friend to kick off your first match.
             </div>
           )}
         </section>
