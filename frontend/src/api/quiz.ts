@@ -37,8 +37,13 @@ export function fetchQuiz(countryCode: string) {
   return getJson<QuizApiResponse>(`/api/quiz/${countryCode}/`);
 }
 
-export function submitQuiz(countryCode: string, answers: QuizSubmitAnswer[]) {
+export function submitQuiz(
+  countryCode: string,
+  answers: QuizSubmitAnswer[],
+  options?: { skipProgress?: boolean }
+) {
   return postJson<QuizSubmitResponse>(`/api/quiz/${countryCode}/submit/`, {
     answers,
+    skip_progress: options?.skipProgress ?? false,
   });
 }
