@@ -7,7 +7,7 @@
 
 ---
 
-## Why this exists (Deeply Human)![Uploading worldquestfrontend.png…]()
+## Why this exists (Deeply Human)!
 
 We built WorldQuest for **Deeply Human** to help people grow consciousness through play, curiosity, and connection. The experience is intentionally designed to encourage:
 - **Presence**: slow down and learn, one country at a time.
