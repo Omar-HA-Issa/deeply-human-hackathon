@@ -30,11 +30,18 @@ services:
       dockerfile: frontend/Dockerfile.prod
       args:
         VITE_API_BASE_URL: ""
+    image: worldquest
     container_name: worldquest_frontend
     depends_on:
       - backend
+    networks:
+      - proxy
     ports:
       - "80"
 
 volumes:
   db_data:
+
+networks:
+  proxy:
+    external: true
