@@ -85,6 +85,23 @@
   gap: 16px;
 }
 
+.friends-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.friends-actions .add-friend-form {
+  flex: 1 1 240px;
+}
+
+.invite-button.button.primary {
+  width: auto;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
 .panel-header {
   display: flex;
   align-items: center;
@@ -308,6 +325,11 @@
 
 @media (max-width: 720px) {
   .add-friend-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .friends-actions {
     flex-direction: column;
     align-items: stretch;
   }
