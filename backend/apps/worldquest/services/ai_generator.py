@@ -274,8 +274,23 @@ class AIQuestionGenerator:
         required_fields = ["prompt", "choices", "correct_index"]
         if not all(field in question for field in required_fields):
             return False
-        if len(question.get("choices", [])) != 4:
+
+        choices = question.get("choices", [])
+        if len(choices) < 4:
             return False
+
+        # Truncate to exactly 4 choices if AI generated more
+        if len(choices) > 4:
+            correct_idx = question.get("correct_index", 0)
+            correct_answer = choices[correct_idx] if correct_idx < len(choices) else choices[0]
+            # Keep correct answer and first 3 others
+            new_choices = [c for c in choices if c != correct_answer][:3]
+            new_choices.append(correct_answer)
+            import random
+            random.shuffle(new_choices)
+            question["choices"] = new_choices
+            question["correct_index"] = new_choices.index(correct_answer)
+
         if not isinstance(question.get("correct_index"), int):
             return False
         if question["correct_index"] < 0 or question["correct_index"] > 3:
