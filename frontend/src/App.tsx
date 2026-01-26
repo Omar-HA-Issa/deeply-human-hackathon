@@ -62,7 +62,19 @@ export function App() {
     const queryString = view.split("?")[1] || "";
     const params = new URLSearchParams(queryString);
     const mode = params.get("mode");
+    const invite = params.get("invite");
+    if (!mode && invite) {
+      return "register" as const;
+    }
     return mode === "register" ? "register" : "login";
+  }, [view]);
+  const authInvite = useMemo(() => {
+    if (!view.startsWith("auth")) {
+      return null;
+    }
+    const queryString = view.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    return params.get("invite");
   }, [view]);
   const quizParams = useMemo(() => {
     if (!view.startsWith("quiz")) {
@@ -81,7 +93,13 @@ export function App() {
   };
 
   if (view.startsWith("auth")) {
-    return <AuthScreen onAuthSuccess={setUser} initialMode={authMode} />;
+    return (
+      <AuthScreen
+        onAuthSuccess={setUser}
+        initialMode={authMode}
+        inviteFrom={authInvite}
+      />
+    );
   }
 
   if (view.startsWith("quiz") && quizParams?.name && quizParams?.code) {
