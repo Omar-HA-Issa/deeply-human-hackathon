@@ -12,6 +12,7 @@ services:
     build:
       context: ..
       dockerfile: backend/Dockerfile
+    container_name: worldquest_backend
     environment:
       POSTGRES_DB: trivia
       POSTGRES_USER: trivia
@@ -21,7 +22,7 @@ services:
     depends_on:
       - db
     ports:
-      - "8000:8000"
+      - "8000"
 
   frontend:
     build:
@@ -29,10 +30,11 @@ services:
       dockerfile: frontend/Dockerfile.prod
       args:
         VITE_API_BASE_URL: ""
+    container_name: worldquest_frontend
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "80"
 
 volumes:
   db_data:
