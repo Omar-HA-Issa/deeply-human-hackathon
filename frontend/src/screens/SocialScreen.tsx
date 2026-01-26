@@ -224,29 +224,9 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
   return (
     <div className="social-screen">
       <section className="card social-hero">
-        <div className="social-hero-actions">
-          <div className="hero-action-row">
-            <button className="button primary" onClick={handleInvite}>
-              Invite friends
-            </button>
-            {inviteStatus ? <span className="invite-status">{inviteStatus}</span> : null}
-          </div>
-          <div className="hero-action-row">
-            <input
-              className="add-friend-input compact"
-              placeholder="Add by username"
-              value={requestName}
-              onChange={(event) => setRequestName(event.target.value)}
-            />
-            <button
-              className="button ghost"
-              onClick={handleSendRequest}
-              disabled={isSendingRequest}
-            >
-              {isSendingRequest ? "Sending..." : "Add friend"}
-            </button>
-          </div>
-          {requestStatus ? <div className="add-friend-status">{requestStatus}</div> : null}
+        <div>
+          <h2>Social</h2>
+          <p>Stay connected with your crew across every quiz.</p>
         </div>
       </section>
 
@@ -256,9 +236,33 @@ export function SocialScreen({ user, onSignIn }: SocialScreenProps) {
             <h3>Friends</h3>
             <span className="pill">{friends.length} total</span>
           </header>
-          {matchStatus ? (
-            <div className="match-status-banner">{matchStatus}</div>
-          ) : null}
+          <div className="friends-actions">
+            <button className="button primary small invite-button" onClick={handleInvite}>
+              Invite friends
+            </button>
+            <div className="add-friend-form">
+              <div className="add-friend-fields">
+                <input
+                  className="add-friend-input"
+                  placeholder="Add by username"
+                  value={requestName}
+                  onChange={(event) => setRequestName(event.target.value)}
+                />
+                <button
+                  className="button primary small add-friend-button"
+                  onClick={handleSendRequest}
+                  disabled={isSendingRequest}
+                >
+                  {isSendingRequest ? "Sending..." : "Send"}
+                </button>
+              </div>
+              {requestStatus ? (
+                <div className="add-friend-status">{requestStatus}</div>
+              ) : inviteStatus ? (
+                <div className="add-friend-status">{inviteStatus}</div>
+              ) : null}
+            </div>
+          </div>
           {isLoading ? (
             <div className="empty-state">Loading friends…</div>
           ) : loadError ? (
