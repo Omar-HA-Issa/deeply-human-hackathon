@@ -1,16 +1,23 @@
-FROM node:20-slim
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-RUN npm install -g npm@9.9.1
+COPY package.json package-lock.json* ./
+RUN npm install
 
-COPY frontend/package.json frontend/package-lock.json* /app/
-RUN npm install --include=dev
+COPY . .
 
-COPY frontend /app
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-ENV NODE_ENV=development
+RUN npm run build
 
-EXPOSE 5173
+# Serve with lightweight static server
+FROM node:20-slim
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=build /app/dist ./dist
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+ENV PORT=3000
+EXPOSE $PORT
+CMD sh -c "serve -s dist -l \$PORT"
