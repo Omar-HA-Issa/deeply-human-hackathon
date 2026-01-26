@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 class QuestionGenerator:
     """
     Main question generator that:
-    1. Checks DB for cached questions (pool of 15)
+    1. Checks DB for cached questions (pool of 5)
     2. If missing, generates ALL questions using AI
-    3. Caches in DB and returns random 5 for each quiz
+    3. Returns all 5 for each quiz
     """
 
-    # Total questions to cache per country (the pool)
-    QUESTIONS_POOL_SIZE = 15
+    # Total questions to cache per country (reduced for quality)
+    QUESTIONS_POOL_SIZE = 5
     # Questions to serve per quiz
     QUESTIONS_PER_QUIZ = 5
 
@@ -57,6 +57,50 @@ class QuestionGenerator:
             return Country.objects.get(name__iexact=country_name)
         except Country.DoesNotExist:
             return None
+
+    def _get_alternate_names(self, country_name: str) -> list[str]:
+        """Get alternate names for a country to match dataset naming conventions."""
+        # Mapping from common names to dataset names
+        name_variants = {
+            "Democratic Republic of the Congo": ["Congo, Dem. Rep.", "DRC", "DR Congo"],
+            "Republic of the Congo": ["Congo, Rep.", "Congo"],
+            "South Korea": ["Korea, Rep.", "Korea"],
+            "North Korea": ["Korea, Dem. Rep."],
+            "United States": ["USA", "United States of America"],
+            "United Kingdom": ["UK", "Britain", "Great Britain"],
+            "Russia": ["Russian Federation"],
+            "Iran": ["Iran, Islamic Rep."],
+            "Egypt": ["Egypt, Arab Rep."],
+            "Venezuela": ["Venezuela, RB"],
+            "Yemen": ["Yemen, Rep."],
+            "Syria": ["Syrian Arab Republic"],
+            "Laos": ["Lao", "Lao PDR"],
+            "Vietnam": ["Viet Nam"],
+            "Ivory Coast": ["Cote d'Ivoire", "Côte d'Ivoire"],
+            "Czech Republic": ["Czechia"],
+            "East Timor": ["Timor-Leste"],
+            "Cape Verde": ["Cabo Verde"],
+            "Gambia": ["Gambia, The"],
+            "Bahamas": ["Bahamas, The"],
+            "Kyrgyzstan": ["Kyrgyz Republic"],
+            "Slovakia": ["Slovak Republic"],
+            "Micronesia": ["Micronesia, Fed. Sts."],
+        }
+
+        # Start with the original name and common variations
+        alternates = [country_name, country_name.title(), country_name.upper()]
+
+        # Add mapped variants
+        if country_name in name_variants:
+            alternates.extend(name_variants[country_name])
+
+        # Also check reverse mapping
+        for standard_name, variants in name_variants.items():
+            if country_name in variants:
+                alternates.append(standard_name)
+                alternates.extend(variants)
+
+        return alternates
 
     def _get_cached_questions(self, country: Country, random_select: bool = True) -> list[Question]:
         """
@@ -96,6 +140,11 @@ class QuestionGenerator:
         # Default to mental category for AI questions
         category = self.get_or_create_category("mental")
 
+        # Get values directly - don't use fallback chains that create duplicates
+        did_you_know = ai_question.get("did_you_know", "")
+        surprising_fact = ai_question.get("surprising_fact", "")
+        explanation = ai_question.get("explanation", "")
+
         question = Question.objects.create(
             country=country,
             category=category,
@@ -103,17 +152,9 @@ class QuestionGenerator:
             choices=ai_question["choices"],
             correct_index=ai_question["correct_index"],
             difficulty=ai_question.get("difficulty", 2),
-            explanation=ai_question.get("explanation") or ai_question.get("surprising_fact", ""),
-            did_you_know=(
-                ai_question.get("did_you_know")
-                or ai_question.get("surprising_fact")
-                or ai_question.get("explanation", "")
-            ),
-            surprising_fact=(
-                ai_question.get("surprising_fact")
-                or ai_question.get("did_you_know")
-                or ai_question.get("explanation", "")
-            ),
+            explanation=explanation,
+            did_you_know=did_you_know,
+            surprising_fact=surprising_fact,
             insight=ai_question.get("insight", ""),
             source=Question.Source.AI,
         )
@@ -159,10 +200,12 @@ class QuestionGenerator:
         country_data = self.template_generator.get_country_data(country.name)
         if not country_data:
             logger.warning(f"No dataset data for country: {country.name}")
-            # Try variations of the name
-            for name_variant in [country.name, country.name.title(), country.name.upper()]:
+            # Try alternate names (dataset uses different naming conventions)
+            alternate_names = self._get_alternate_names(country.name)
+            for name_variant in alternate_names:
                 country_data = self.template_generator.get_country_data(name_variant)
                 if country_data:
+                    logger.info(f"Found data using alternate name: {name_variant}")
                     break
 
         if not country_data:
