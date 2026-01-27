@@ -327,28 +327,43 @@ class AIQuestionGenerator:
         has_decimals = any('.' in str(p[1]) and p[1] != int(p[1]) for p in parsed if p[1] is not None)
 
         # Normalize all to same format
-        # For small numbers (< 10), keep 1 decimal place to avoid all becoming same value
-        # For larger numbers, round to whole numbers
+        # Try different precision levels until we get unique choices
         max_num = max(p[1] for p in parsed if p[1] is not None)
-        use_decimals = max_num < 10
 
-        new_choices = []
-        for prefix, num, suffix, valid in parsed:
-            if valid:
-                if use_decimals:
-                    # Keep 1 decimal place for small numbers
-                    formatted = f"{num:.1f}".rstrip('0').rstrip('.')
+        def format_choices(decimals: int) -> list[str]:
+            result = []
+            for prefix, num, suffix, valid in parsed:
+                if valid:
+                    if decimals == 0:
+                        formatted = str(int(round(num)))
+                    else:
+                        formatted = f"{num:.{decimals}f}"
+                    new_choice = f"{prefix}{formatted}"
+                    if suffix:
+                        new_choice += f" {suffix}" if not suffix.startswith('%') else suffix
+                    result.append(new_choice.strip())
                 else:
-                    # Round to whole number for larger numbers
-                    formatted = str(int(round(num)))
-                new_choice = f"{prefix}{formatted}"
-                if suffix:
-                    new_choice += f" {suffix}" if not suffix.startswith('%') else suffix
-                new_choices.append(new_choice.strip())
-            else:
-                new_choices.append(choices[parsed.index((prefix, num, suffix, valid))])
+                    result.append(choices[parsed.index((prefix, num, suffix, valid))])
+            return result
 
-        question["choices"] = new_choices
+        # For large numbers (>= 100), use whole numbers
+        # For medium numbers (10-100), try 0 then 1 decimal
+        # For small numbers (< 10), try 1 then 2 decimals
+        if max_num >= 100:
+            precision_options = [0]
+        elif max_num >= 10:
+            precision_options = [0, 1]
+        else:
+            precision_options = [1, 2, 3]
+
+        # Try each precision level until we get 4 unique choices
+        for decimals in precision_options:
+            new_choices = format_choices(decimals)
+            if len(set(new_choices)) >= len(new_choices):  # All unique
+                question["choices"] = new_choices
+                return question
+
+        # If still not unique, keep original choices
         return question
 
     def _extract_number_from_text(self, text: str) -> float | None:
