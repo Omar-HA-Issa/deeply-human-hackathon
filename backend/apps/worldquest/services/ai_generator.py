@@ -276,6 +276,8 @@ class AIQuestionGenerator:
             return False
         if len(question.get("choices", [])) != 4:
             return False
+        if len({str(choice).strip() for choice in question.get("choices", [])}) != 4:
+            return False
         if not isinstance(question.get("correct_index"), int):
             return False
         if question["correct_index"] < 0 or question["correct_index"] > 3:
