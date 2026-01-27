@@ -24,8 +24,8 @@ class QuestionGenerator:
     3. Returns all 5 for each quiz
     """
 
-    # Total questions to cache per country (reduced for quality)
-    QUESTIONS_POOL_SIZE = 5
+    # Total questions to cache per country (larger pool for variety)
+    QUESTIONS_POOL_SIZE = 10
     # Questions to serve per quiz
     QUESTIONS_PER_QUIZ = 5
 

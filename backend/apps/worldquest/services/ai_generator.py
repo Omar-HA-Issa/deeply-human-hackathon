@@ -191,19 +191,23 @@ CRITICAL: DO NOT REVEAL ANSWERS IN CHOICES:
 - For comparison questions, ask about ONE specific value, not which is higher/lower
 - AVOID comparison questions entirely - ask direct "What is X?" questions instead
 
-DIMENSIONAL COVERAGE - You are generating exactly 5 questions. Each MUST be from a DIFFERENT category:
+DIMENSIONAL COVERAGE - You are generating exactly {num_questions} questions. Pick from DIFFERENT categories and VARY your metric choices:
 
-Question 1 - ECONOMY (pick ONE): GDP per capita, unemployment rate, inequality/Gini index, exports, imports, inflation, poverty rate, billionaires count
-Question 2 - DEMOGRAPHICS (pick ONE): Median age, population density, urban population %, population growth, marriage age
-Question 3 - HEALTH (pick ONE): Life expectancy, infant mortality, doctors per capita, alcohol consumption, smoking rate, BMI
-Question 4 - ENVIRONMENT (pick ONE): Forest coverage %, CO2 emissions, agricultural land %, renewable water resources
-Question 5 - TECHNOLOGY/LIFESTYLE (pick ONE): Internet users %, cell phones per capita, vehicles per capita, working hours, electricity use
+AVAILABLE CATEGORIES (pick a diverse mix):
+- ECONOMY: GDP per capita, unemployment rate, inequality/Gini index, exports, imports, inflation, poverty rate, billionaires count, tax revenue, working hours
+- DEMOGRAPHICS: Median age, population density, urban population %, population growth, marriage age, teen fertility
+- HEALTH: Life expectancy (male or female), alcohol consumption, smoking rate, BMI, food supply/calories, sugar consumption
+- ENVIRONMENT: Forest coverage %, CO2 emissions, agricultural land %, renewable water resources
+- TECHNOLOGY: Internet users %, cell phones per capita, broadband subscribers, vehicles per capita, electricity use, roads paved %
+- SAFETY: Murder rate, traffic deaths, suicide rate
+- MILITARY: Military spending % of GDP, armed forces %
 
 STRICT RULES FOR DIVERSITY:
-- Pick ONLY ONE metric from each category above
+- RANDOMLY select metrics - do NOT always pick the same ones (e.g., don't always use literacy, forest coverage, or agricultural land)
 - NEVER ask two questions about similar topics (e.g., don't ask about both male AND female life expectancy)
+- Prioritize SURPRISING and lesser-known statistics over common ones
+- Prefer metrics with interesting or counterintuitive values for this specific country
 - Each question should teach something completely different about the country
-- Aim for surprising or counterintuitive facts that challenge assumptions
 
 Respond with ONLY valid JSON, no markdown."""
 
@@ -566,7 +570,7 @@ class AIQuestionGenerator:
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.7,
+                temperature=0.85,
                 max_tokens=max_tokens,
             )
 
