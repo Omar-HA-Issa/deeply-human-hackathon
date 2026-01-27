@@ -53,7 +53,12 @@ CORS_ALLOWED_ORIGINS = [
 # Add production frontend URL from environment
 CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 if CORS_ALLOWED_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS.extend([url.strip() for url in CORS_ALLOWED_ORIGINS_ENV.split(',') if url.strip()])
+    CORS_ALLOWED_ORIGINS.extend([url.strip().rstrip('/') for url in CORS_ALLOWED_ORIGINS_ENV.split(',') if url.strip()])
+
+# Also allow Railway domains via regex pattern
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.up\.railway\.app$",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -102,9 +107,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS must be before WhiteNoise
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
