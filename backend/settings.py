@@ -56,6 +56,25 @@ if CORS_ALLOWED_ORIGINS_ENV:
     CORS_ALLOWED_ORIGINS.extend([url.strip() for url in CORS_ALLOWED_ORIGINS_ENV.split(',') if url.strip()])
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
