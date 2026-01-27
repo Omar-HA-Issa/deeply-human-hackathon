@@ -36,7 +36,6 @@ INTERESTING_METRICS = [
 
     # Health & Lifestyle
     "infant_mortality_rate_per_1000_births",
-    "medical_doctors_per_1000_people",
     "alcohol_consumption_per_adult_15plus_litres",
     "smoking_adults_percent_of_population_over_age_15",
     "body_mass_index_bmi_men_kgperm2",

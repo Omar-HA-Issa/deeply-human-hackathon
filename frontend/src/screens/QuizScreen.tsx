@@ -334,7 +334,7 @@ export function QuizScreen({ countryName, countryCode, matchId, onComplete }: Qu
         <div className="quiz-question">
           <h3>{currentQuestion.prompt}</h3>
           <div className="quiz-options">
-            {currentQuestion.choices.map((option, index) => {
+            {currentQuestion.choices.slice(0, 4).map((option, index) => {
               const answerState = answerStates[currentQuestion.id];
               const isAnswered = Boolean(answerState);
               const isSelected = answerState?.selectedIndex === index;

@@ -111,6 +111,46 @@ def _sync_progress_unlocks(user, xp: int) -> list[str]:
 	return [country.iso2 for country in unlocked_countries]
 
 
+def _unlock_adjacent_countries(user, country_code: str) -> list[str]:
+	"""Unlock countries that share a border with the completed country."""
+	from .data.borders import COUNTRY_BORDERS
+
+	neighbors = COUNTRY_BORDERS.get(country_code.upper(), [])
+	if not neighbors:
+		return []
+
+	# Get available countries from dataset
+	available_names = _get_dataset_country_names()
+
+	# Find neighbor countries that are in our dataset
+	neighbor_countries = Country.objects.filter(
+		iso2__in=neighbors,
+		name__in=available_names
+	)
+
+	unlocked = []
+	now = timezone.now()
+
+	for country in neighbor_countries:
+		progress, created = Progress.objects.get_or_create(
+			user=user,
+			country=country,
+			defaults={
+				"status": Progress.Status.AVAILABLE,
+				"unlocked_at": now,
+			}
+		)
+		if created:
+			unlocked.append(country.iso2)
+		elif progress.status == Progress.Status.LOCKED:
+			progress.status = Progress.Status.AVAILABLE
+			progress.unlocked_at = progress.unlocked_at or now
+			progress.save(update_fields=["status", "unlocked_at"])
+			unlocked.append(country.iso2)
+
+	return unlocked
+
+
 @csrf_exempt
 @require_POST
 def register(request):
@@ -364,6 +404,9 @@ def submit_quiz(request, country_code):
 					progress.status = Progress.Status.COMPLETED
 					progress.completed_at = timezone.now()
 					progress.save()
+
+				# Unlock adjacent countries
+				_unlock_adjacent_countries(request.user, country_code)
 
 	return JsonResponse({
 		"ok": True,

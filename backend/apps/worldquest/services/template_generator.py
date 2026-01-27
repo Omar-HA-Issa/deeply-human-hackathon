@@ -73,12 +73,6 @@ TEMPLATE_METRICS = {
         "format": "{:.1f}",
         "category": "Health",
     },
-    "medical_doctors_per_1000_people": {
-        "display_name": "doctors per 1000 people",
-        "unit": "",
-        "format": "{:.2f}",
-        "category": "Health",
-    },
     "alcohol_consumption_per_adult_15plus_litres": {
         "display_name": "alcohol consumption per adult",
         "unit": "litres/year",
