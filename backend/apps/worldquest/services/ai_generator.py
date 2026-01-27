@@ -558,8 +558,8 @@ class AIQuestionGenerator:
         )
 
         try:
-            # Calculate tokens needed: ~500 tokens per question for detailed facts
-            max_tokens = max(3000, count * 500)
+            # Calculate tokens needed: ~350 tokens per question for detailed facts
+            max_tokens = min(4000, max(2500, count * 350))
 
             response = self.client.chat.completions.create(
                 model=self.MODEL,
