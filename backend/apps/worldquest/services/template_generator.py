@@ -245,6 +245,15 @@ class TemplateQuestionGenerator:
         format_str = metric_info.get("format", "{:.1f}")
         unit = metric_info.get("unit", "")
 
+        def format_choice(val: float) -> str:
+            try:
+                formatted = format_str.format(val)
+            except (ValueError, KeyError):
+                formatted = f"{val:.1f}"
+            if unit and unit not in formatted:
+                formatted = f"{formatted} {unit}"
+            return formatted
+
         # Generate variations (±10-40% of the value)
         variations = []
         for pct in [-0.3, -0.15, 0.15, 0.3]:
@@ -260,28 +269,54 @@ class TemplateQuestionGenerator:
         # Remove duplicates and sort
         variations = sorted(set([round(v, 1) for v in variations if abs(v - correct_value) > 0.1]))
 
-        # Pick wrong answers
-        wrong_values = random.sample(variations, min(count - 1, len(variations)))
+        # Build wrong answers ensuring formatted uniqueness
+        max_attempts = 50
+        wrong_values: list[float] = []
+        used_formatted = {format_choice(correct_value)}
 
-        # If we don't have enough variations, generate more
-        while len(wrong_values) < count - 1:
-            new_val = correct_value * random.uniform(0.5, 1.5)
-            if abs(new_val - correct_value) > 0.1 and new_val not in wrong_values:
-                wrong_values.append(round(new_val, 1))
+        pool = variations[:]
+        random.shuffle(pool)
+
+        attempts = 0
+        while len(wrong_values) < count - 1 and attempts < max_attempts:
+            attempts += 1
+            if pool:
+                candidate = pool.pop()
+            else:
+                candidate = correct_value * random.uniform(0.5, 1.5)
+            if candidate <= 0:
+                continue
+            candidate = round(candidate, 2)
+            formatted = format_choice(candidate)
+            if formatted in used_formatted:
+                continue
+            wrong_values.append(candidate)
+            used_formatted.add(formatted)
+
+        # If still short, nudge values to create distinct formatted choices
+        if len(wrong_values) < count - 1:
+            precision_match = None
+            try:
+                import re
+                precision_match = re.search(r"\.([0-9])f", format_str)
+            except Exception:
+                precision_match = None
+
+            decimals = int(precision_match.group(1)) if precision_match else 0
+            step = 1 if decimals == 0 else 10 ** (-decimals)
+
+            nudge = step
+            while len(wrong_values) < count - 1:
+                candidate = correct_value + nudge
+                formatted = format_choice(candidate)
+                if formatted not in used_formatted and candidate > 0:
+                    wrong_values.append(candidate)
+                    used_formatted.add(formatted)
+                nudge += step
 
         # Create all choices and shuffle
-        all_values = wrong_values[:count-1] + [correct_value]
+        all_values = wrong_values[:count - 1] + [correct_value]
         random.shuffle(all_values)
-
-        # Format choices
-        def format_choice(val):
-            try:
-                formatted = format_str.format(val)
-            except (ValueError, KeyError):
-                formatted = f"{val:.1f}"
-            if unit and unit not in formatted:
-                formatted = f"{formatted} {unit}"
-            return formatted
 
         choices = [format_choice(v) for v in all_values]
         correct_index = all_values.index(correct_value)
