@@ -27,7 +27,7 @@ services:
       - db
     expose:
       - "8000"
-    command: ["/bin/sh", "-c", "python manage.py migrate && python manage.py load_countries && python manage.py runserver 0.0.0.0:8000"]
+    command: ["/bin/sh", "-c", "python manage.py migrate && python manage.py load_countries && python manage.py clear_questions && python manage.py runserver 0.0.0.0:8000"]
 
   frontend:
     build:
