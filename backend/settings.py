@@ -68,6 +68,12 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# Cookie settings for cross-domain authentication
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
