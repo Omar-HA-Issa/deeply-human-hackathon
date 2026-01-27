@@ -351,7 +351,7 @@ export function QuizScreen({ countryName, countryCode, matchId, onComplete }: Qu
 
               return (
                 <button
-                  key={option}
+                  key={`${currentQuestion.id}-${index}`}
                   data-variant={optionVariants[index % optionVariants.length]}
                   className={`quiz-option ${selectedIndex === index ? "selected" : ""} ${stateClass}`}
                   onClick={() => handleOptionSelect(index)}

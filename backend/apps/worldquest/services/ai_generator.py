@@ -326,13 +326,22 @@ class AIQuestionGenerator:
         # Determine if any choice has decimals
         has_decimals = any('.' in str(p[1]) and p[1] != int(p[1]) for p in parsed if p[1] is not None)
 
-        # Normalize all to same format (round to whole numbers for cleaner look)
+        # Normalize all to same format
+        # For small numbers (< 10), keep 1 decimal place to avoid all becoming same value
+        # For larger numbers, round to whole numbers
+        max_num = max(p[1] for p in parsed if p[1] is not None)
+        use_decimals = max_num < 10
+
         new_choices = []
         for prefix, num, suffix, valid in parsed:
             if valid:
-                # Round to whole number for cleaner appearance
-                rounded = int(round(num))
-                new_choice = f"{prefix}{rounded}"
+                if use_decimals:
+                    # Keep 1 decimal place for small numbers
+                    formatted = f"{num:.1f}".rstrip('0').rstrip('.')
+                else:
+                    # Round to whole number for larger numbers
+                    formatted = str(int(round(num)))
+                new_choice = f"{prefix}{formatted}"
                 if suffix:
                     new_choice += f" {suffix}" if not suffix.startswith('%') else suffix
                 new_choices.append(new_choice.strip())
@@ -572,6 +581,12 @@ class AIQuestionGenerator:
 
                 # Normalize choice precision so answers aren't obvious
                 q = self._normalize_choice_precision(q)
+
+                # Reject questions where all choices are identical
+                unique_choices = set(str(c).strip().lower() for c in q.get("choices", []))
+                if len(unique_choices) < 2:
+                    logger.warning(f"Question rejected - all choices identical: {q.get('prompt', '')[:50]}...")
+                    continue
 
                 # Validate and auto-fix the correct answer against actual data
                 fixed_q = self._validate_and_fix_answer(q, metrics)
