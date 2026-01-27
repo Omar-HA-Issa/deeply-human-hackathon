@@ -102,7 +102,9 @@ Country: {country}
 Data:
 {metrics_json}
 
-Generate {num_questions} trivia questions following this EXACT structure:
+You MUST generate EXACTLY {num_questions} trivia questions. Not 4, not 3 - EXACTLY {num_questions}. This is critical.
+
+Each question must follow this EXACT structure:
 
 1. "did_you_know" - A fascinating, DETAILED hook fact (2-3 sentences) that ADDS VALUE beyond the question. This should provide CONTEXT, HISTORY, GLOBAL COMPARISONS, or CAUSE-AND-EFFECT that the user wouldn't learn just from answering the question.
 
@@ -208,6 +210,8 @@ STRICT RULES FOR DIVERSITY:
 - Prioritize SURPRISING and lesser-known statistics over common ones
 - Prefer metrics with interesting or counterintuitive values for this specific country
 - Each question should teach something completely different about the country
+
+FINAL REMINDER: You MUST return EXACTLY {num_questions} questions in your response. This is mandatory - the quiz will break if you return fewer.
 
 Respond with ONLY valid JSON, no markdown."""
 
