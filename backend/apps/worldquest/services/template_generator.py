@@ -67,12 +67,6 @@ TEMPLATE_METRICS = {
     },
 
     # Health & Lifestyle
-    "infant_mortality_rate_per_1000_births": {
-        "display_name": "infant mortality rate",
-        "unit": "per 1000 births",
-        "format": "{:.1f}",
-        "category": "Health",
-    },
     "alcohol_consumption_per_adult_15plus_litres": {
         "display_name": "alcohol consumption per adult",
         "unit": "litres/year",
