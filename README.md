@@ -3,7 +3,7 @@
 
 **WorldQuest** is a globe-spanning quiz adventure where learning geography becomes a game of exploration, mastery, and social play. This project was built for **Deeply Human**—a community and mission we love—because we believe playful learning is a powerful path to curiosity, empathy, and *greater consciousness*. WorldQuest turns facts into felt understanding: every country you unlock is a little more awareness of our shared planet.
 
-**Live app:** https://worldquest.davidhoerz.com/#
+**Live app:** https://worldquest.up.railway.app/#
 
 ---
 
