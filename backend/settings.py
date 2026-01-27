@@ -44,21 +44,8 @@ else:
         'worldquest.davidhoerz.com',
     ]
 
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-]
-
-# Add production frontend URL from environment
-CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-if CORS_ALLOWED_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS.extend([url.strip().rstrip('/') for url in CORS_ALLOWED_ORIGINS_ENV.split(',') if url.strip()])
-
-# Also allow Railway domains via regex pattern
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.up\.railway\.app$",
-]
+# CORS Configuration - Allow all origins temporarily for debugging
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -84,11 +71,9 @@ CORS_ALLOW_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
+    'https://deeply-human-frontend-production.up.railway.app',
+    'https://deeply-human-hackathon-production.up.railway.app',
 ]
-
-# Add production URLs to CSRF trusted origins
-if CORS_ALLOWED_ORIGINS_ENV:
-    CSRF_TRUSTED_ORIGINS.extend([url.strip() for url in CORS_ALLOWED_ORIGINS_ENV.split(',') if url.strip()])
 
 
 # Application definition
